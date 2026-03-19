@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GoToKart</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>🛒 GoToKart</h1>
+
+    <!-- USER SECTION -->
+    <div class="card">
+        <h2>👤 Register User</h2>
+        <input id="username" placeholder="Name">
+        <input id="email" placeholder="Email">
+        <button onclick="registerUser()">Register</button>
+    </div>
+
+    <!-- PRODUCT SECTION -->
+    <div class="card">
+        <h2>📦 Add Product</h2>
+        <input id="name" placeholder="Product Name">
+        <input id="price" type="number" placeholder="Price">
+        <input id="stock" type="number" placeholder="Stock">
+        <button onclick="addProduct()">Add Product</button>
+    </div>
+
+    <!-- PRODUCT LIST -->
+    <div class="card">
+        <h2>🛍️ Products</h2>
+        <button onclick="loadProducts()">Load Products</button>
+        <div id="productList"></div>
+    </div>
+
+    <!-- CART -->
+    <div class="card">
+        <h2>🛒 Cart</h2>
+        <button onclick="viewCart()">View Cart</button>
+        <div id="cartList"></div>
+    </div>
+
+    <!-- ORDER -->
+    <div class="card">
+        <h2>📦 Orders</h2>
+        <button onclick="placeOrder()">Place Order</button>
+        <button onclick="viewOrders()">View Orders</button>
+        <div id="orderList"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
