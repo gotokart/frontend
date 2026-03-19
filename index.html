@@ -11,12 +11,13 @@
 
 <!-- NAV -->
 <nav class="nav">
-  <div class="nav-logo">GoTo<span>Kart</span></div>
+  <div class="nav-logo" onclick="showSection('hero')" style="cursor:pointer">GoTo<span>Kart</span></div>
   <div class="nav-links">
     <a href="#" onclick="showSection('products')" class="nav-link active">Shop</a>
     <a href="#" onclick="showSection('cart')" class="nav-link">Cart <span class="cart-badge" id="cartBadge">0</span></a>
     <a href="#" onclick="showSection('orders')" class="nav-link">Orders</a>
     <a href="#" onclick="showSection('auth')" class="nav-link" id="authLink">Login</a>
+    <button class="btn-logout hidden" id="logoutBtn" onclick="logoutUser()">Logout</button>
   </div>
 </nav>
 
@@ -32,17 +33,11 @@
     <div class="hero-blob"></div>
     <div class="hero-card floating">
       <div class="hero-card-icon">🛒</div>
-      <div>
-        <div class="hero-card-title">Fast Delivery</div>
-        <div class="hero-card-sub">Same day shipping</div>
-      </div>
+      <div><div class="hero-card-title">Fast Delivery</div><div class="hero-card-sub">Same day shipping</div></div>
     </div>
     <div class="hero-card floating-2">
       <div class="hero-card-icon">✨</div>
-      <div>
-        <div class="hero-card-title">Top Quality</div>
-        <div class="hero-card-sub">Verified products</div>
-      </div>
+      <div><div class="hero-card-title">Top Quality</div><div class="hero-card-sub">Verified products</div></div>
     </div>
   </div>
 </section>
@@ -50,7 +45,26 @@
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- SECTIONS -->
+<!-- ORDER SUCCESS MODAL -->
+<div class="modal-overlay hidden" id="orderModal">
+  <div class="modal-box">
+    <div class="modal-confetti"></div>
+    <div class="modal-icon">🎉</div>
+    <h2 class="modal-title">Order Placed!</h2>
+    <p class="modal-msg" id="modalMsg"></p>
+    <p class="modal-thanks">Thank you for shopping with <strong>GoToKart</strong> ❤️</p>
+    <button class="btn-primary full" onclick="closeOrderModal()">Continue Shopping →</button>
+  </div>
+</div>
+
+<!-- SPINNER -->
+<div class="spinner-overlay hidden" id="spinnerOverlay">
+  <div class="spinner-box">
+    <div class="spinner"></div>
+    <p class="spinner-text" id="spinnerText">Loading...</p>
+  </div>
+</div>
+
 <main class="main">
 
   <!-- AUTH -->
@@ -60,30 +74,17 @@
         <button class="auth-tab active" onclick="switchTab('login')">Login</button>
         <button class="auth-tab" onclick="switchTab('register')">Register</button>
       </div>
-
       <div id="loginForm">
         <h2 class="section-title">Welcome Back</h2>
-        <div class="form-group">
-          <label>User ID</label>
-          <input type="number" id="loginUserId" placeholder="Enter your user ID" class="input"/>
-        </div>
+        <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="john@example.com" class="input"/></div>
+        <div class="form-group"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" class="input"/></div>
         <button class="btn-primary full" onclick="loginUser()">Login →</button>
       </div>
-
       <div id="registerForm" class="hidden">
         <h2 class="section-title">Create Account</h2>
-        <div class="form-group">
-          <label>Full Name</label>
-          <input type="text" id="regName" placeholder="John Doe" class="input"/>
-        </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="regEmail" placeholder="john@example.com" class="input"/>
-        </div>
-        <div class="form-group">
-          <label>Password</label>
-          <input type="password" id="regPassword" placeholder="••••••••" class="input"/>
-        </div>
+        <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="John Doe" class="input"/></div>
+        <div class="form-group"><label>Email</label><input type="email" id="regEmail" placeholder="john@example.com" class="input"/></div>
+        <div class="form-group"><label>Password</label><input type="password" id="regPassword" placeholder="••••••••" class="input"/></div>
         <button class="btn-primary full" onclick="registerUser()">Create Account →</button>
       </div>
     </div>
@@ -91,25 +92,74 @@
 
   <!-- PRODUCTS -->
   <section class="section hidden" id="productsSection">
-    <div class="section-header">
-      <h2 class="section-title">All Products</h2>
-      <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="Search products..." class="input" oninput="filterProducts()"/>
+
+    <!-- SEARCH BAR — prominent -->
+    <div class="search-hero">
+      <div class="search-hero-wrap">
+        <span class="search-hero-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search for shoes, shirts, mobiles, pants..." class="search-hero-input" oninput="filterProducts()"/>
+        <button class="search-hero-clear hidden" id="searchClear" onclick="clearSearch()">✕ Clear</button>
+      </div>
+      <div class="search-result-info hidden" id="searchResultInfo"></div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div class="categories-bar" id="categoriesBar">
+      <button class="cat-btn active" onclick="filterByCategory('all')" data-cat="all">🛍️ All</button>
+      <button class="cat-btn" onclick="filterByCategory('electronics')" data-cat="electronics">📱 Electronics</button>
+      <button class="cat-btn" onclick="filterByCategory('clothing')" data-cat="clothing">👕 Clothing</button>
+      <button class="cat-btn" onclick="filterByCategory('footwear')" data-cat="footwear">👟 Footwear</button>
+      <button class="cat-btn" onclick="filterByCategory('accessories')" data-cat="accessories">🕶️ Accessories</button>
+      <button class="cat-btn" onclick="filterByCategory('beauty')" data-cat="beauty">💄 Beauty</button>
+      <button class="cat-btn" onclick="filterByCategory('sports')" data-cat="sports">🏋️ Sports</button>
+      <button class="cat-btn" onclick="filterByCategory('home')" data-cat="home">🏠 Home</button>
+      <button class="cat-btn" onclick="filterByCategory('food')" data-cat="food">🍎 Food</button>
+      <button class="cat-btn" onclick="filterByCategory('books')" data-cat="books">📚 Books</button>
+      <button class="cat-btn" onclick="filterByCategory('toys')" data-cat="toys">🧸 Toys</button>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="filter-left">
+        <span class="filter-label">Sort by:</span>
+        <select class="filter-select" id="sortSelect" onchange="applyFilters()">
+          <option value="default">Default</option>
+          <option value="price-low">Price: Low to High</option>
+          <option value="price-high">Price: High to Low</option>
+          <option value="name-az">Name: A–Z</option>
+          <option value="name-za">Name: Z–A</option>
+          <option value="stock-high">Most in Stock</option>
+        </select>
+        <select class="filter-select" id="stockFilter" onchange="applyFilters()">
+          <option value="all">All Products</option>
+          <option value="instock">In Stock Only</option>
+          <option value="outstock">Out of Stock</option>
+        </select>
+      </div>
+      <div class="filter-right">
+        <span class="products-count" id="productsCount"></span>
+        <button class="btn-add-toggle" onclick="toggleAdminPanel()">＋ Add Product</button>
       </div>
     </div>
+
+    <!-- PRODUCTS GRID -->
     <div class="products-grid" id="productsGrid">
       <div class="loading">Loading products...</div>
     </div>
 
-    <!-- Add Product (Admin) -->
-    <div class="admin-panel">
-      <h3 class="admin-title">+ Add New Product</h3>
+    <!-- ADD PRODUCT PANEL -->
+    <div class="admin-panel hidden" id="adminPanel">
+      <div class="admin-panel-header">
+        <h3 class="admin-title">➕ Add / Update Product</h3>
+        <button class="admin-close" onclick="toggleAdminPanel()">✕</button>
+      </div>
+      <p class="admin-hint">💡 If product name already exists, stock will be added to existing product.</p>
       <div class="admin-form">
-        <input type="text" id="pName" placeholder="Product name" class="input"/>
-        <input type="text" id="pDesc" placeholder="Description" class="input"/>
-        <input type="number" id="pPrice" placeholder="Price (₹)" class="input"/>
-        <input type="number" id="pStock" placeholder="Stock quantity" class="input"/>
-        <button class="btn-secondary" onclick="addProduct()">Add Product</button>
+        <div class="form-group"><label>Product Name</label><input type="text" id="pName" placeholder="e.g. iPhone 15, Nike Shoes" class="input"/></div>
+        <div class="form-group"><label>Description</label><input type="text" id="pDesc" placeholder="Short description" class="input"/></div>
+        <div class="form-group"><label>Price (₹)</label><input type="number" id="pPrice" placeholder="e.g. 999" class="input"/></div>
+        <div class="form-group"><label>Stock Quantity</label><input type="number" id="pStock" placeholder="e.g. 50" class="input"/></div>
+        <button class="btn-primary" onclick="addProduct()" style="grid-column:1/-1">Add / Update Product</button>
       </div>
     </div>
   </section>
@@ -117,28 +167,24 @@
   <!-- CART -->
   <section class="section hidden" id="cartSection">
     <h2 class="section-title">Your Cart</h2>
-    <div id="cartContent">
-      <div class="empty-state">🛒 Your cart is empty</div>
-    </div>
-    <div class="cart-footer" id="cartFooter" style="display:none">
+    <div id="cartContent"><div class="empty-state">🛒 Your cart is empty</div></div>
+    <div class="cart-footer hidden" id="cartFooter">
       <div class="cart-total" id="cartTotal"></div>
-      <button class="btn-primary" onclick="placeOrder()">Place Order →</button>
+      <button class="btn-primary" id="placeOrderBtn" onclick="placeOrder()">Place Order →</button>
     </div>
   </section>
 
   <!-- ORDERS -->
   <section class="section hidden" id="ordersSection">
     <h2 class="section-title">Your Orders</h2>
-    <div id="ordersContent">
-      <div class="empty-state">📦 No orders yet</div>
-    </div>
+    <div id="ordersContent"><div class="empty-state">📦 No orders yet</div></div>
   </section>
 
 </main>
 
 <footer class="footer">
   <div class="footer-logo">GoTo<span>Kart</span></div>
-  <p>© 2026 GoToKart. Shop fast. Live bold.</p>
+  <p>© 2026 GoToKart. Where every cart tells a story. ⚡ Powered by Spring Boot & MySQL</p>
 </footer>
 
 <script src="script.js"></script>
