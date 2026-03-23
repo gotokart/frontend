@@ -8,64 +8,101 @@ let activeSearch = '';
 function getCategory(name) {
   const n = (name || '').toLowerCase();
   if (n.includes('phone') || n.includes('laptop') || n.includes('computer') || n.includes('tablet') ||
-      n.includes('tv') || n.includes('camera') || n.includes('headphone') || n.includes('earphone') ||
-      n.includes('speaker') || n.includes('keyboard') || n.includes('mouse') || n.includes('charger') ||
-      n.includes('battery') || n.includes('powerbank') || n.includes('printer') || n.includes('router') ||
-      n.includes('pendrive') || n.includes('hard disk') || n.includes('monitor') || n.includes('iphone') ||
-      n.includes('samsung') || n.includes('macbook') || n.includes('airpod') || n.includes('gaming') ||
-      n.includes('cable') || n.includes('wifi') || n.includes('modem') || n.includes('ssd')) return 'electronics';
+      n.includes('tv') || n.includes('television') || n.includes('camera') || n.includes('headphone') ||
+      n.includes('earphone') || n.includes('speaker') || n.includes('keyboard') || n.includes('mouse') ||
+      n.includes('charger') || n.includes('battery') || n.includes('powerbank') || n.includes('printer') ||
+      n.includes('router') || n.includes('pendrive') || n.includes('hard disk') || n.includes('monitor') ||
+      n.includes('iphone') || n.includes('samsung') || n.includes('macbook') || n.includes('airpod') ||
+      n.includes('gaming') || n.includes('cable') || n.includes('wifi') || n.includes('modem') ||
+      n.includes('ssd') || n.includes('smartwatch') || n.includes('drone') || n.includes('projector')) return 'electronics';
+
   if (n.includes('shirt') || n.includes('pant') || n.includes('trouser') || n.includes('jeans') ||
       n.includes('dress') || n.includes('jacket') || n.includes('coat') || n.includes('hoodie') ||
       n.includes('sweater') || n.includes('saree') || n.includes('suit') || n.includes('kurta') ||
       n.includes('shorts') || n.includes('sock') || n.includes('glove') || n.includes('scarf') ||
       n.includes('tshirt') || n.includes('top') || n.includes('blazer') || n.includes('kurti') ||
       n.includes('denim') || n.includes('legging') || n.includes('innerwear') || n.includes('bra') ||
-      n.includes('hat') || n.includes('cap') || n.includes('beanie') || n.includes('shawl')) return 'clothing';
+      n.includes('hat') || n.includes('cap') || n.includes('beanie') || n.includes('shawl') ||
+      n.includes('dupatta') || n.includes('salwar') || n.includes('pajama') || n.includes('sweatshirt')) return 'clothing';
+
   if (n.includes('shoe') || n.includes('sneaker') || n.includes('boot') || n.includes('heel') ||
       n.includes('sandal') || n.includes('slipper') || n.includes('loafer') || n.includes('chappal') ||
-      n.includes('flipflop') || n.includes('trainer') || n.includes('oxford') || n.includes('footwear')) return 'footwear';
+      n.includes('flipflop') || n.includes('flip flop') || n.includes('trainer') ||
+      n.includes('oxford') || n.includes('footwear') || n.includes('moccasin')) return 'footwear';
+
   if (n.includes('goggle') || n.includes('sunglasses') || n.includes('glasses') || n.includes('watch') ||
       n.includes('ring') || n.includes('necklace') || n.includes('earring') || n.includes('bracelet') ||
       n.includes('belt') || n.includes('wallet') || n.includes('bag') || n.includes('backpack') ||
       n.includes('purse') || n.includes('umbrella') || n.includes('tie') || n.includes('bangle') ||
       n.includes('pendant') || n.includes('chain') || n.includes('jewel') || n.includes('chasma') ||
-      n.includes('spectacle')) return 'accessories';
+      n.includes('spectacle') || n.includes('handbag') || n.includes('clutch') || n.includes('suitcase') ||
+      n.includes('luggage') || n.includes('locket') || n.includes('anklet')) return 'accessories';
+
   if (n.includes('nail') || n.includes('lipstick') || n.includes('lip') || n.includes('perfume') ||
-      n.includes('cologne') || n.includes('deodorant') || n.includes('makeup') || n.includes('mascara') ||
-      n.includes('eyeliner') || n.includes('kajal') || n.includes('foundation') || n.includes('blush') ||
-      n.includes('shampoo') || n.includes('conditioner') || n.includes('hair oil') || n.includes('soap') ||
-      n.includes('facewash') || n.includes('moisturizer') || n.includes('cream') || n.includes('lotion') ||
-      n.includes('toothbrush') || n.includes('razor') || n.includes('trimmer') || n.includes('serum') ||
-      n.includes('sunscreen') || n.includes('toner') || n.includes('sanitizer')) return 'beauty';
+      n.includes('cologne') || n.includes('deodorant') || n.includes('deo') || n.includes('makeup') ||
+      n.includes('mascara') || n.includes('eyeliner') || n.includes('kajal') || n.includes('foundation') ||
+      n.includes('blush') || n.includes('shampoo') || n.includes('conditioner') || n.includes('hair oil') ||
+      n.includes('soap') || n.includes('facewash') || n.includes('face wash') || n.includes('moisturizer') ||
+      n.includes('cream') || n.includes('lotion') || n.includes('toothbrush') || n.includes('toothpaste') ||
+      n.includes('razor') || n.includes('trimmer') || n.includes('serum') || n.includes('sunscreen') ||
+      n.includes('toner') || n.includes('sanitizer') || n.includes('body wash') || n.includes('bodywash') ||
+      n.includes('face mask') || n.includes('hair dryer') || n.includes('straightener') ||
+      n.includes('highlighter') || n.includes('concealer') || n.includes('primer')) return 'beauty';
+
   if (n.includes('cricket') || n.includes('football') || n.includes('basketball') || n.includes('gym') ||
-      n.includes('dumbbell') || n.includes('yoga') || n.includes('cycle') || n.includes('badminton') ||
-      n.includes('tennis') || n.includes('swimming') || n.includes('protein') || n.includes('supplement') ||
-      n.includes('fitness') || n.includes('sports') || n.includes('weight') || n.includes('barbell') ||
-      n.includes('skipping') || n.includes('treadmill') || n.includes('racket')) return 'sports';
+      n.includes('dumbbell') || n.includes('yoga') || n.includes('cycle') || n.includes('bicycle') ||
+      n.includes('badminton') || n.includes('tennis') || n.includes('swimming') || n.includes('protein') ||
+      n.includes('supplement') || n.includes('fitness') || n.includes('sports') || n.includes('weight') ||
+      n.includes('barbell') || n.includes('skipping') || n.includes('treadmill') || n.includes('racket') ||
+      n.includes('volleyball') || n.includes('hockey') || n.includes('boxing') || n.includes('gloves') ||
+      n.includes('stadium') || n.includes('bat') || n.includes('stumps') || n.includes('jersey')) return 'sports';
+
   if (n.includes('chair') || n.includes('sofa') || n.includes('bed') || n.includes('mattress') ||
       n.includes('pillow') || n.includes('blanket') || n.includes('lamp') || n.includes('bulb') ||
-      n.includes('fan') || n.includes('cooler') || n.includes('fridge') || n.includes('washing') ||
+      n.includes('light') || n.includes('led') || n.includes('fan') || n.includes('cooler') ||
+      n.includes('ac ') || n.includes(' ac') || n === 'ac' || n.includes('air conditioner') ||
+      n.includes('airconditioner') || n.includes('air-conditioner') || n.includes('fridge') ||
+      n.includes('refrigerator') || n.includes('washing machine') || n.includes('washer') ||
       n.includes('vacuum') || n.includes('broom') || n.includes('bucket') || n.includes('mirror') ||
       n.includes('clock') || n.includes('candle') || n.includes('curtain') || n.includes('towel') ||
-      n.includes('furniture') || n.includes('decor') || n.includes('home')) return 'home';
+      n.includes('furniture') || n.includes('decor') || n.includes('home') || n.includes('geyser') ||
+      n.includes('water heater') || n.includes('microwave') || n.includes('oven') ||
+      n.includes('mixer') || n.includes('grinder') || n.includes('juicer') || n.includes('toaster') ||
+      n.includes('iron box') || n.includes('iron ') || n.includes(' iron') || n === 'iron' ||
+      n.includes('inverter') || n.includes('stabilizer') || n.includes('heater') ||
+      n.includes('air purifier') || n.includes('dishwasher') || n.includes('kettle') ||
+      n.includes('induction') || n.includes('chimney') || n.includes('exhaust')) return 'home';
+
   if (n.includes('rice') || n.includes('wheat') || n.includes('flour') || n.includes('atta') ||
       n.includes('milk') || n.includes('coffee') || n.includes('tea') || n.includes('juice') ||
       n.includes('chocolate') || n.includes('biscuit') || n.includes('snack') || n.includes('chips') ||
       n.includes('oil') || n.includes('ghee') || n.includes('spice') || n.includes('masala') ||
       n.includes('fruit') || n.includes('vegetable') || n.includes('food') || n.includes('dal') ||
-      n.includes('sugar') || n.includes('salt') || n.includes('sauce') || n.includes('pickle')) return 'food';
+      n.includes('sugar') || n.includes('salt') || n.includes('sauce') || n.includes('pickle') ||
+      n.includes('bread') || n.includes('butter') || n.includes('cheese') || n.includes('egg') ||
+      n.includes('paneer') || n.includes('honey') || n.includes('jam') || n.includes('noodle') ||
+      n.includes('pasta') || n.includes('namkeen') || n.includes('dry fruit') || n.includes('nuts')) return 'food';
+
   if (n.includes('book') || n.includes('novel') || n.includes('textbook') || n.includes('pen') ||
       n.includes('pencil') || n.includes('notebook') || n.includes('diary') || n.includes('stationery') ||
-      n.includes('marker') || n.includes('eraser') || n.includes('calculator') || n.includes('ruler')) return 'books';
+      n.includes('marker') || n.includes('eraser') || n.includes('calculator') || n.includes('ruler') ||
+      n.includes('highlighter pen') || n.includes('stapler') || n.includes('file') || n.includes('folder') ||
+      n.includes('compass') || n.includes('geometry')) return 'books';
+
   if (n.includes('toy') || n.includes('doll') || n.includes('lego') || n.includes('puzzle') ||
       n.includes('game') || n.includes('playstation') || n.includes('xbox') || n.includes('nintendo') ||
-      n.includes('remote control') || n.includes('teddy') || n.includes('board game') || n.includes('chess')) return 'toys';
+      n.includes('remote control') || n.includes('teddy') || n.includes('board game') ||
+      n.includes('chess') || n.includes('carrom') || n.includes('action figure') ||
+      n.includes('rc car') || n.includes('rc plane')) return 'toys';
+
   return 'other';
 }
 
 // ===== EMOJI MAP =====
 function productEmoji(name) {
   const n = (name || '').toLowerCase();
+
+  // Electronics
   if (n.includes('iphone') || n.includes('smartphone')) return '📱';
   if (n.includes('phone') || n.includes('mobile')) return '📱';
   if (n.includes('laptop') || n.includes('macbook')) return '💻';
@@ -79,78 +116,166 @@ function productEmoji(name) {
   if (n.includes('mouse')) return '🖱️';
   if (n.includes('charger') || n.includes('cable')) return '🔌';
   if (n.includes('battery') || n.includes('powerbank')) return '🔋';
+  if (n.includes('printer')) return '🖨️';
+  if (n.includes('projector')) return '📽️';
+  if (n.includes('drone')) return '🚁';
+  if (n.includes('pendrive') || n.includes('usb')) return '💾';
+  if (n.includes('router') || n.includes('wifi') || n.includes('modem')) return '📡';
+
+  // Clothing
   if (n.includes('shirt') || n.includes('tshirt') || n.includes('top')) return '👕';
   if (n.includes('pant') || n.includes('trouser') || n.includes('jeans') || n.includes('denim')) return '👖';
   if (n.includes('dress') || n.includes('frock') || n.includes('gown')) return '👗';
-  if (n.includes('jacket') || n.includes('coat') || n.includes('hoodie') || n.includes('sweater')) return '🧥';
+  if (n.includes('jacket') || n.includes('coat') || n.includes('hoodie') || n.includes('sweater') || n.includes('sweatshirt')) return '🧥';
   if (n.includes('saree') || n.includes('sari')) return '🥻';
   if (n.includes('suit') || n.includes('blazer')) return '🤵';
   if (n.includes('kurta') || n.includes('kurti')) return '👘';
   if (n.includes('shorts')) return '🩳';
   if (n.includes('sock')) return '🧦';
   if (n.includes('glove')) return '🧤';
-  if (n.includes('scarf') || n.includes('shawl')) return '🧣';
+  if (n.includes('scarf') || n.includes('shawl') || n.includes('dupatta')) return '🧣';
   if (n.includes('hat') || n.includes('cap') || n.includes('beanie')) return '🧢';
+
+  // Footwear
   if (n.includes('shoe') || n.includes('sneaker') || n.includes('trainer')) return '👟';
   if (n.includes('boot')) return '🥾';
   if (n.includes('heel') || n.includes('stiletto')) return '👠';
-  if (n.includes('sandal') || n.includes('slipper') || n.includes('chappal')) return '🩴';
-  if (n.includes('loafer') || n.includes('oxford')) return '👞';
+  if (n.includes('sandal') || n.includes('slipper') || n.includes('chappal') || n.includes('flip flop') || n.includes('flipflop')) return '🩴';
+  if (n.includes('loafer') || n.includes('oxford') || n.includes('moccasin')) return '👞';
+
+  // Accessories
   if (n.includes('goggle') || n.includes('sunglasses') || n.includes('glasses') || n.includes('spectacle') || n.includes('chasma')) return '🕶️';
   if (n.includes('watch')) return '⌚';
   if (n.includes('ring')) return '💍';
-  if (n.includes('necklace') || n.includes('chain') || n.includes('pendant')) return '📿';
-  if (n.includes('earring')) return '💎';
+  if (n.includes('necklace') || n.includes('chain') || n.includes('pendant') || n.includes('locket')) return '📿';
+  if (n.includes('earring') || n.includes('jhumka')) return '💎';
+  if (n.includes('bracelet') || n.includes('bangle') || n.includes('anklet')) return '📿';
   if (n.includes('belt')) return '🪢';
   if (n.includes('wallet') || n.includes('purse')) return '👛';
   if (n.includes('handbag') || n.includes('clutch')) return '👜';
   if (n.includes('backpack') || n.includes('rucksack')) return '🎒';
   if (n.includes('bag')) return '🛍️';
   if (n.includes('umbrella')) return '☂️';
+  if (n.includes('luggage') || n.includes('suitcase')) return '🧳';
+  if (n.includes('tie')) return '👔';
+
+  // Beauty
   if (n.includes('nail paint') || n.includes('nailpaint') || n.includes('nail polish')) return '💅';
-  if (n.includes('lipstick') || n.includes('lip')) return '💄';
-  if (n.includes('perfume') || n.includes('cologne') || n.includes('deo')) return '🧴';
-  if (n.includes('shampoo') || n.includes('hair')) return '🧴';
-  if (n.includes('soap') || n.includes('facewash')) return '🧼';
-  if (n.includes('moisturizer') || n.includes('cream') || n.includes('lotion')) return '🧴';
+  if (n.includes('lipstick') || n.includes('lip gloss') || n.includes('lip balm')) return '💄';
+  if (n.includes('perfume') || n.includes('cologne') || n.includes('deo') || n.includes('deodorant')) return '🧴';
+  if (n.includes('mascara') || n.includes('eyeliner') || n.includes('kajal')) return '👁️';
+  if (n.includes('shampoo') || n.includes('conditioner') || n.includes('hair oil') || n.includes('hair')) return '🧴';
+  if (n.includes('soap') || n.includes('facewash') || n.includes('face wash') || n.includes('body wash')) return '🧼';
+  if (n.includes('moisturizer') || n.includes('cream') || n.includes('lotion') || n.includes('serum') || n.includes('sunscreen')) return '🧴';
   if (n.includes('toothbrush') || n.includes('toothpaste')) return '🪥';
   if (n.includes('razor') || n.includes('trimmer')) return '🪒';
-  if (n.includes('bottle') || n.includes('sipper') || n.includes('flask')) return '🍶';
+  if (n.includes('makeup') || n.includes('foundation') || n.includes('concealer') || n.includes('blush') || n.includes('highlighter')) return '🪞';
+
+  // Bottles & containers
+  if (n.includes('water bottle') || n.includes('sipper')) return '💧';
+  if (n.includes('bottle') || n.includes('flask') || n.includes('thermos')) return '🍶';
   if (n.includes('jar') || n.includes('container')) return '🫙';
-  if (n.includes('tiffin') || n.includes('lunchbox')) return '🥡';
-  if (n.includes('book') || n.includes('novel')) return '📚';
-  if (n.includes('pen') || n.includes('pencil')) return '✏️';
-  if (n.includes('notebook') || n.includes('diary')) return '📓';
-  if (n.includes('cricket')) return '🏏';
-  if (n.includes('football')) return '⚽';
+  if (n.includes('tiffin') || n.includes('lunchbox') || n.includes('lunch box')) return '🥡';
+
+  // Books & stationery
+  if (n.includes('book') || n.includes('novel') || n.includes('textbook')) return '📚';
+  if (n.includes('pen') || n.includes('pencil') || n.includes('marker')) return '✏️';
+  if (n.includes('notebook') || n.includes('diary') || n.includes('journal')) return '📓';
+  if (n.includes('calculator')) return '🧮';
+  if (n.includes('stapler')) return '📎';
+
+  // Sports
+  if (n.includes('cricket') || n.includes('bat') || n.includes('stumps')) return '🏏';
+  if (n.includes('football') || n.includes('soccer')) return '⚽';
   if (n.includes('basketball')) return '🏀';
   if (n.includes('badminton') || n.includes('racket')) return '🏸';
-  if (n.includes('gym') || n.includes('dumbbell') || n.includes('weight')) return '🏋️';
+  if (n.includes('tennis')) return '🎾';
+  if (n.includes('volleyball')) return '🏐';
+  if (n.includes('hockey')) return '🏑';
+  if (n.includes('boxing') || n.includes('gloves')) return '🥊';
+  if (n.includes('gym') || n.includes('dumbbell') || n.includes('weight') || n.includes('barbell')) return '🏋️';
   if (n.includes('yoga') || n.includes('mat')) return '🧘';
   if (n.includes('cycle') || n.includes('bicycle')) return '🚲';
-  if (n.includes('chair') || n.includes('sofa')) return '🪑';
-  if (n.includes('bed') || n.includes('mattress') || n.includes('pillow')) return '🛏️';
-  if (n.includes('blanket') || n.includes('quilt')) return '🛌';
-  if (n.includes('lamp') || n.includes('bulb') || n.includes('light')) return '💡';
-  if (n.includes('fan') || n.includes('cooler') || n.includes('ac')) return '❄️';
+  if (n.includes('treadmill')) return '🏃';
+  if (n.includes('protein') || n.includes('supplement')) return '💪';
+  if (n.includes('skipping') || n.includes('jump rope')) return '🪢';
+  if (n.includes('jersey')) return '👕';
+
+  // Home appliances — AC, Fridge etc.
+  if (n.includes('ac ') || n.includes(' ac') || n === 'ac' ||
+      n.includes('air conditioner') || n.includes('airconditioner') || n.includes('air-conditioner')) return '❄️';
   if (n.includes('fridge') || n.includes('refrigerator')) return '🧊';
+  if (n.includes('washing machine') || n.includes('washer')) return '🫧';
+  if (n.includes('microwave') || n.includes('oven')) return '📦';
+  if (n.includes('geyser') || n.includes('water heater')) return '🚿';
+  if (n.includes('mixer') || n.includes('grinder') || n.includes('juicer') || n.includes('blender')) return '🫙';
+  if (n.includes('toaster')) return '🍞';
+  if (n.includes('kettle')) return '☕';
+  if (n.includes('induction')) return '🍳';
+  if (n.includes('fan') || n.includes('cooler') || n.includes('air cooler')) return '💨';
+  if (n.includes('iron box') || n.includes('iron ') || n.includes(' iron') || n === 'iron') return '👔';
+  if (n.includes('heater') || n.includes('room heater')) return '🔥';
+  if (n.includes('inverter') || n.includes('stabilizer')) return '🔌';
+  if (n.includes('air purifier')) return '💨';
+  if (n.includes('chimney') || n.includes('exhaust')) return '💨';
+  if (n.includes('dishwasher')) return '🍽️';
+
+  // Home furniture & decor
+  if (n.includes('chair') || n.includes('sofa') || n.includes('couch')) return '🪑';
+  if (n.includes('bed') || n.includes('mattress') || n.includes('pillow')) return '🛏️';
+  if (n.includes('blanket') || n.includes('quilt') || n.includes('comforter')) return '🛌';
+  if (n.includes('lamp') || n.includes('bulb') || n.includes('led') || n.includes('light')) return '💡';
   if (n.includes('clock') || n.includes('alarm')) return '⏰';
   if (n.includes('candle')) return '🕯️';
   if (n.includes('mirror')) return '🪞';
+  if (n.includes('towel')) return '🧺';
+  if (n.includes('broom') || n.includes('vacuum') || n.includes('mop')) return '🧹';
+  if (n.includes('bucket')) return '🪣';
+  if (n.includes('curtain')) return '🪟';
+
+  // Toys & games
   if (n.includes('toy') || n.includes('doll') || n.includes('teddy')) return '🧸';
-  if (n.includes('game') || n.includes('playstation') || n.includes('xbox')) return '🎮';
-  if (n.includes('puzzle')) return '🧩';
-  if (n.includes('milk') || n.includes('dairy')) return '🥛';
+  if (n.includes('playstation') || n.includes('xbox') || n.includes('nintendo') || n.includes('game console')) return '🎮';
+  if (n.includes('puzzle') || n.includes('jigsaw')) return '🧩';
+  if (n.includes('chess') || n.includes('board game') || n.includes('carrom')) return '♟️';
+  if (n.includes('lego')) return '🧱';
+
+  // Food & kitchen
+  if (n.includes('milk') || n.includes('dairy') || n.includes('paneer')) return '🥛';
   if (n.includes('coffee')) return '☕';
   if (n.includes('tea') || n.includes('chai')) return '🍵';
-  if (n.includes('chocolate') || n.includes('candy')) return '🍫';
+  if (n.includes('juice') || n.includes('drink')) return '🧃';
+  if (n.includes('chocolate') || n.includes('candy') || n.includes('sweet')) return '🍫';
   if (n.includes('biscuit') || n.includes('cookie')) return '🍪';
-  if (n.includes('chips') || n.includes('snack')) return '🍟';
+  if (n.includes('chips') || n.includes('snack') || n.includes('namkeen')) return '🍟';
   if (n.includes('oil') || n.includes('ghee')) return '🫒';
-  if (n.includes('rice') || n.includes('wheat') || n.includes('atta')) return '🌾';
-  if (n.includes('fruit') || n.includes('apple') || n.includes('mango')) return '🍎';
-  if (n.includes('vegetable') || n.includes('veggie')) return '🥦';
-  if (n.includes('luggage') || n.includes('suitcase')) return '🧳';
+  if (n.includes('rice') || n.includes('wheat') || n.includes('atta') || n.includes('flour')) return '🌾';
+  if (n.includes('fruit') || n.includes('apple') || n.includes('mango') || n.includes('banana')) return '🍎';
+  if (n.includes('vegetable') || n.includes('veggie') || n.includes('sabzi')) return '🥦';
+  if (n.includes('bread')) return '🍞';
+  if (n.includes('butter') || n.includes('cheese')) return '🧀';
+  if (n.includes('egg')) return '🥚';
+  if (n.includes('honey')) return '🍯';
+  if (n.includes('noodle') || n.includes('pasta')) return '🍜';
+  if (n.includes('dry fruit') || n.includes('nuts') || n.includes('almond') || n.includes('cashew')) return '🥜';
+  if (n.includes('spice') || n.includes('masala')) return '🌶️';
+  if (n.includes('salt') || n.includes('sugar')) return '🧂';
+  if (n.includes('sauce') || n.includes('ketchup') || n.includes('pickle')) return '🫙';
+  if (n.includes('plate') || n.includes('bowl') || n.includes('thali')) return '🍽️';
+  if (n.includes('glass') || n.includes('cup') || n.includes('mug')) return '☕';
+  if (n.includes('spoon') || n.includes('fork') || n.includes('spatula') || n.includes('ladle')) return '🥄';
+  if (n.includes('pan') || n.includes('tawa') || n.includes('kadai') || n.includes('vessel') || n.includes('pot')) return '🍳';
+  if (n.includes('knife') || n.includes('cutter')) return '🔪';
+
+  // Health
+  if (n.includes('medicine') || n.includes('capsule') || n.includes('tablet') && n.includes('mg') || n.includes('syrup')) return '💊';
+  if (n.includes('bandage') || n.includes('plaster') || n.includes('first aid')) return '🩹';
+  if (n.includes('thermometer')) return '🌡️';
+  if (n.includes('mask')) return '😷';
+
+  // Pet
+  if (n.includes('pet food') || n.includes('dog food') || n.includes('cat food')) return '🐾';
+
   return '📦';
 }
 
@@ -178,7 +303,7 @@ function showOrderModal(orderId, total) {
 }
 function closeOrderModal() {
   document.getElementById('orderModal').classList.add('hidden');
-  showSection('products'); // go to shop, not hero
+  showSection('products');
 }
 
 // ===== NAVIGATION =====
@@ -284,7 +409,6 @@ function loadProducts() {
     .catch(() => { hideSpinner(); toast('Could not load products', 'error'); });
 }
 
-// Category filter
 function filterByCategory(cat) {
   activeCategory = cat;
   document.querySelectorAll('.cat-btn').forEach(b => {
@@ -293,7 +417,6 @@ function filterByCategory(cat) {
   applyFilters();
 }
 
-// Search
 function filterProducts() {
   activeSearch = document.getElementById('searchInput').value.trim().toLowerCase();
   const clearBtn = document.getElementById('searchClear');
@@ -309,16 +432,13 @@ function clearSearch() {
   applyFilters();
 }
 
-// Apply all filters + sort
 function applyFilters() {
   let filtered = [...allProducts];
 
-  // Category filter
   if (activeCategory !== 'all') {
     filtered = filtered.filter(p => getCategory(p.name) === activeCategory);
   }
 
-  // Search filter
   if (activeSearch) {
     filtered = filtered.filter(p =>
       (p.name || '').toLowerCase().includes(activeSearch) ||
@@ -326,12 +446,10 @@ function applyFilters() {
     );
   }
 
-  // Stock filter
   const stockFilter = document.getElementById('stockFilter')?.value;
   if (stockFilter === 'instock') filtered = filtered.filter(p => p.stock > 0);
   if (stockFilter === 'outstock') filtered = filtered.filter(p => p.stock <= 0);
 
-  // Sort
   const sort = document.getElementById('sortSelect')?.value;
   if (sort === 'price-low') filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
   if (sort === 'price-high') filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
@@ -339,7 +457,6 @@ function applyFilters() {
   if (sort === 'name-za') filtered.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
   if (sort === 'stock-high') filtered.sort((a, b) => (b.stock || 0) - (a.stock || 0));
 
-  // Update search info
   const info = document.getElementById('searchResultInfo');
   if (activeSearch) {
     info.classList.remove('hidden');
@@ -350,7 +467,6 @@ function applyFilters() {
     info.classList.add('hidden');
   }
 
-  // Update count
   const countEl = document.getElementById('productsCount');
   if (countEl) countEl.innerHTML = `<span>${filtered.length}</span> product${filtered.length !== 1 ? 's' : ''}`;
 
@@ -395,7 +511,6 @@ function renderProducts(products) {
   `).join('');
 }
 
-// DELETE PRODUCT
 function deleteProduct(productId, productName) {
   if (!confirm(`Remove "${productName}" from the store?`)) return;
   showSpinner('Removing product...');
@@ -409,7 +524,6 @@ function deleteProduct(productId, productName) {
     .catch(() => { hideSpinner(); toast('Failed to remove product', 'error'); });
 }
 
-// ADD PRODUCT
 function toggleAdminPanel() {
   document.getElementById('adminPanel').classList.toggle('hidden');
 }
