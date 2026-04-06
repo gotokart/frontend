@@ -1,8 +1,27 @@
-const API = 'http://3.236.214.183/api';
+const API = 'http://NEW_EC2_IP/api';
 let currentUser = null;
 let allProducts = [];
 let activeCategory = 'all';
 let activeSearch = '';
+
+// ===== AUTH TAB SWITCHER =====
+function switchAuthTab(tab) {
+  const loginForm    = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  const tabs         = document.querySelectorAll('.auth-tab');
+
+  tabs.forEach(t => t.classList.remove('active'));
+
+  if (tab === 'login') {
+    loginForm.classList.remove('hidden');
+    registerForm.classList.add('hidden');
+    tabs[0].classList.add('active');
+  } else {
+    registerForm.classList.remove('hidden');
+    loginForm.classList.add('hidden');
+    tabs[1].classList.add('active');
+  }
+}
 
 // ===== CATEGORY DETECTION =====
 function getCategory(name) {
