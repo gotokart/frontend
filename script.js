@@ -375,6 +375,9 @@ function setLoggedInUser(user) {
   document.getElementById('authLink').textContent = user.name || `User #${user.id}`;
   document.getElementById('authLink').onclick = (e) => e.preventDefault();
   document.getElementById('logoutBtn').classList.remove('hidden');
+  if (user.role === 'ADMIN') {
+    document.getElementById('adminToggleBtn').classList.remove('hidden');
+  }
   updateCartBadge();
   toast(`Welcome back, ${user.name || 'User'}! 👋`);
   showSection('products');
@@ -385,6 +388,8 @@ function logoutUser() {
   document.getElementById('authLink').textContent = 'Login';
   document.getElementById('authLink').onclick = () => showSection('auth');
   document.getElementById('logoutBtn').classList.add('hidden');
+  document.getElementById('adminToggleBtn').classList.add('hidden');
+  document.getElementById('adminPanel').classList.add('hidden');
   document.getElementById('cartBadge').textContent = '0';
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPassword').value = '';
@@ -544,7 +549,25 @@ function deleteProduct(productId, productName) {
 }
 
 function toggleAdminPanel() {
-  document.getElementById('adminPanel').classList.toggle('hidden');
+  const panel = document.getElementById('adminPanel');
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) loadCategoriesDropdown();
+}
+
+function loadCategoriesDropdown() {
+  fetch(`${API}/categories`)
+    .then(r => r.json())
+    .then(cats => {
+      const sel = document.getElementById('pCategory');
+      sel.innerHTML = '<option value="">— Select Existing Category —</option>';
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+    })
+    .catch(() => {});
 }
 
 function addProduct() {
@@ -552,21 +575,54 @@ function addProduct() {
   const description = document.getElementById('pDesc').value.trim();
   const price       = parseFloat(document.getElementById('pPrice').value);
   const stock       = parseInt(document.getElementById('pStock').value);
-  if (!name || !price || !stock) return toast('Please fill all product fields', 'error');
+  const catId       = document.getElementById('pCategory').value;
+  const newCatName  = document.getElementById('pNewCategory').value.trim();
+
+  if (!name || !price || !stock) return toast('Please fill Name, Price and Stock', 'error');
+
   showSpinner('Saving product...');
-  fetch(`${API}/products`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, description, price, stock })
-  })
-    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-    .then(() => {
-      hideSpinner();
-      toast(`${productEmoji(name)} "${name}" saved! ✅`);
-      ['pName','pDesc','pPrice','pStock'].forEach(id => document.getElementById(id).value = '');
-      loadProducts();
+
+  const saveProduct = (categoryObj) => {
+    const body = { name, description, price, stock };
+    if (categoryObj) body.category = categoryObj;
+    return fetch(`${API}/products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  };
+
+  const finish = () => {
+    hideSpinner();
+    toast(`${productEmoji(name)} "${name}" saved! ✅`);
+    ['pName','pDesc','pPrice','pStock','pNewCategory'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('pCategory').value = '';
+    loadProducts();
+    loadCategoriesDropdown();
+  };
+
+  if (newCatName) {
+    fetch(`${API}/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newCatName })
     })
-    .catch(() => { hideSpinner(); toast('Failed to save product', 'error'); });
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(cat => saveProduct({ id: cat.id, name: cat.name }))
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(finish)
+      .catch(() => { hideSpinner(); toast('Failed to save product', 'error'); });
+  } else if (catId) {
+    saveProduct({ id: parseInt(catId) })
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(finish)
+      .catch(() => { hideSpinner(); toast('Failed to save product', 'error'); });
+  } else {
+    saveProduct(null)
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(finish)
+      .catch(() => { hideSpinner(); toast('Failed to save product', 'error'); });
+  }
 }
 
 // ===== CART =====
