@@ -1,4 +1,3 @@
-[README_FRONTEND.md](https://github.com/user-attachments/files/26132676/README_FRONTEND.md)
 # 🛍️ GoToKart — Frontend
 
 <div align="center">
@@ -7,6 +6,7 @@
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![JWT](https://img.shields.io/badge/JWT-Auth-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 
 **A luxury dark-themed e-commerce frontend — no framework, pure HTML/CSS/JS**
 
@@ -20,6 +20,7 @@
 - [Features](#-features)
 - [File Structure](#-file-structure)
 - [Getting Started](#-getting-started)
+- [Authentication](#-authentication)
 - [Pages & Sections](#-pages--sections)
 - [API Integration](#-api-integration)
 - [Product Categories](#-product-categories)
@@ -31,7 +32,7 @@
 
 GoToKart Frontend is a **single-page application** built with pure HTML, CSS, and JavaScript — no React, no Vue, no build tools needed. Just open `index.html` and go.
 
-It connects directly to the GoToKart Spring Boot backend at `http://localhost:8080/api`.
+It connects to the GoToKart Spring Boot backend at `http://localhost:8080/api` and authenticates using **JWT tokens**.
 
 **Design Philosophy:** Luxury dark theme inspired by high-end e-commerce. Deep blacks, amber gold accents, smooth animations, and a typography pairing of Playfair Display + DM Sans.
 
@@ -40,20 +41,23 @@ It connects directly to the GoToKart Spring Boot backend at `http://localhost:80
 ## ✨ Features
 
 ### 🔐 Authentication
-- Register with name, email, password
-- Login with email + password
-- Auto-fills login after registration
-- Logout → returns to landing page
-- User name shown in nav after login
+- Register with name, email, password — returns JWT token
+- Login with email + password — returns JWT token
+- JWT stored in `localStorage` (`gk_token`)
+- Session automatically restored on page reload from stored token
+- Logout → clears token and returns to landing page
+- User name and role shown in nav after login
+- Admin panel visible only to `ADMIN` role users
 
 ### 🏬 Product Shop
 - **Live search** — type to filter with highlighted matching text
 - **11 Categories** — Electronics, Clothing, Footwear, Accessories, Beauty, Sports, Home, Food, Books, Toys, All
 - **Smart sort** — Price (low/high), Name (A–Z/Z–A), Most in stock
 - **Stock filter** — Show in-stock only or out-of-stock
-- **Auto emoji detection** — 150+ product types auto-detected
-- **Add product** — expandable form panel with duplicate merge support
-- **Delete product** — 🗑️ button on each card with confirmation
+- **Auto emoji detection** — 150+ product types auto-detected from product name
+- **Category tags** — each product card shows its category
+- **Add product** — admin-only expandable panel with category dropdown
+- **Delete product** — 🗑️ button visible only to admins, with confirmation
 - **Out of stock** badge — disabled button when stock = 0
 - **Low stock warning** — ⚠️ when ≤ 5 items left
 
@@ -62,7 +66,7 @@ It connects directly to the GoToKart Spring Boot backend at `http://localhost:80
 - **+ / −** stepper to adjust quantity in cart
 - Remove individual items with animation
 - Real-time subtotal and total calculation
-- Cart badge count in nav bar
+- Cart badge shows total quantity (not just item count) in nav bar
 - Empty state with helpful message
 
 ### 📦 Orders
@@ -87,10 +91,10 @@ It connects directly to the GoToKart Spring Boot backend at `http://localhost:80
 ```
 frontend/
 │
-├── index.html          # Main HTML — all sections as hidden/shown divs
-├── style.css           # All styling — dark theme, components, animations
-├── app.js              # All logic — API calls, rendering, state
-└── README.md           # This file
+├── index.html      # Main HTML — all sections as hidden/shown divs
+├── style.css       # All styling — dark theme, components, animations
+├── script.js       # All logic — API calls, JWT auth, rendering, state
+└── README.md       # This file
 ```
 
 > Single page — no routing library, no bundler. Each "page" is a `<section>` that shows/hides.
@@ -108,7 +112,7 @@ frontend/
 ### Setup
 
 **Step 1 — Start the backend:**
-```powershell
+```bash
 cd backend
 mvn clean spring-boot:run
 ```
@@ -122,9 +126,35 @@ Double-click index.html
 
 Or serve with VS Code Live Server extension for auto-reload.
 
-**Step 3 — That's it!** 🎉
+**Step 3 — Log in as admin:**
 
-> If you see CORS errors in browser console, make sure your Spring Boot controllers have `@CrossOrigin(origins = "*")`.
+| Field | Value |
+|-------|-------|
+| Email | `admin@gotokart.com` |
+| Password | `admin123` |
+
+---
+
+## 🔐 Authentication
+
+The frontend uses **JWT-based authentication**.
+
+### Flow
+1. User submits login/register form
+2. `POST /api/auth/login` (or `/api/auth/register`) returns `{ token, id, name, email, role }`
+3. Token is saved to `localStorage` as `gk_token`
+4. All admin API calls include `Authorization: Bearer <token>` header via `authHeaders()`
+5. On page reload, token is read from `localStorage` and session is restored automatically
+
+### Key Functions in `script.js`
+
+| Function | Purpose |
+|----------|---------|
+| `loginUser()` | POST to `/api/auth/login`, stores JWT |
+| `registerUser()` | POST to `/api/auth/register`, stores JWT |
+| `authHeaders()` | Returns `{ Authorization: Bearer <token> }` |
+| `onLoginSuccess()` | Sets nav, shows admin panel if ADMIN role |
+| `logoutUser()` | Clears token from localStorage |
 
 ---
 
@@ -144,28 +174,29 @@ All sections are in a single `index.html` — JavaScript shows/hides them via `s
 
 ## 🔌 API Integration
 
-All API calls are in `app.js`. The base URL is:
+All API calls are in `script.js`. The base URL is:
 
 ```javascript
 const API = 'http://localhost:8080/api';
 ```
 
-To change the backend URL, edit this one line at the top of `app.js`.
+To change the backend URL, edit this one constant at the top of `script.js`.
 
 ### API Calls Summary
 
-| Action | Method | Endpoint |
-|--------|--------|----------|
-| Get all users | `GET` | `/api/users` |
-| Register | `POST` | `/api/users/register` |
-| Get products | `GET` | `/api/products` |
-| Add product | `POST` | `/api/products` |
-| Delete product | `DELETE` | `/api/products/{id}` |
-| Get cart | `GET` | `/api/cart/{userId}` |
-| Add to cart | `POST` | `/api/cart/{userId}/add?productId=&quantity=` |
-| Remove from cart | `DELETE` | `/api/cart/{userId}/remove?productId=` |
-| Place order | `POST` | `/api/orders/{userId}/place` |
-| Get orders | `GET` | `/api/orders/{userId}` |
+| Action | Method | Endpoint | Auth |
+|--------|--------|----------|:----:|
+| Login | `POST` | `/api/auth/login` | No |
+| Register | `POST` | `/api/auth/register` | No |
+| Get own profile | `GET` | `/api/users/me` | JWT |
+| Get products | `GET` | `/api/products` | No |
+| Add product | `POST` | `/api/products` | ADMIN JWT |
+| Delete product | `DELETE` | `/api/products/{id}` | ADMIN JWT |
+| Get cart | `GET` | `/api/cart/{userId}` | No |
+| Add to cart | `POST` | `/api/cart/{userId}/add?productId=&quantity=` | No |
+| Remove from cart | `DELETE` | `/api/cart/{userId}/remove?productId=` | No |
+| Place order | `POST` | `/api/orders/{userId}/place` | No |
+| Get orders | `GET` | `/api/orders/{userId}` | No |
 
 ---
 
@@ -185,6 +216,8 @@ The frontend auto-detects product category and emoji from the product name:
 | Food | 🌾 ☕ 🍫 🥛 | Rice, Coffee, Chocolate, Milk |
 | Books | 📚 ✏️ 📓 | Book, Pen, Notebook, Diary |
 | Toys | 🧸 🎮 🧩 | Doll, PlayStation, Puzzle |
+
+Category is also shown as a tag on each product card.
 
 ---
 
@@ -234,18 +267,19 @@ The frontend auto-detects product category and emoji from the product name:
 
 ### Change backend URL
 ```javascript
-// app.js — line 1
+// script.js — top of file
 const API = 'http://localhost:8080/api';
 ```
 
-### Add a new category
+### Add a new emoji mapping
 ```javascript
-// app.js — getCategory() function
-if (n.includes('medicine') || n.includes('capsule')) return 'health';
+// script.js — productEmoji() function
+if (n.includes('medicine') || n.includes('capsule')) return '💊';
 ```
 
-Then add a button in `index.html`:
+### Add a new category filter button
 ```html
+<!-- index.html -->
 <button class="cat-btn" onclick="filterByCategory('health')" data-cat="health">💊 Health</button>
 ```
 
@@ -271,7 +305,7 @@ Then add a button in `index.html`:
 
 <div align="center">
 
-Built with ❤️ using **Vanilla HTML/CSS/JS**
+Built with ❤️ using **Vanilla HTML/CSS/JS** and **JWT Authentication**
 
 **GoToKart** — Where every cart tells a story ⚡
 
