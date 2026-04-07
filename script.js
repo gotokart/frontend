@@ -11,7 +11,11 @@
    8. registerUser endpoint aligned to /auth/register
    =================================================== */
 
-const API = 'http://localhost:8080/api';
+// Use relative /api when served via nginx (port 80/443, local Docker or EC2).
+// Fall back to direct backend URL when opening index.html as a file or via Live Server.
+const API = (location.protocol === 'file:' || location.port === '5500' || location.port === '3000')
+  ? 'http://localhost:8080/api'
+  : '/api';
 
 let currentUser  = null;   // { id, name, email, role }
 let jwtToken     = localStorage.getItem('gk_token') || null;
