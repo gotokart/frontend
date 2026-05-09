@@ -164,6 +164,11 @@
           <label>New Category (if not listed above)</label>
           <input type="text" id="pNewCategory" placeholder="e.g. Electronics" class="input"/>
         </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Product Image (optional, max 1 MB — JPG / PNG / WEBP)</label>
+          <input type="file" id="pImage" accept="image/jpeg,image/png,image/webp" class="input"/>
+          <small style="color:var(--text2);font-size:0.75rem">Uploaded directly to AWS S3 via a presigned URL.</small>
+        </div>
         <button class="btn-primary" onclick="addProduct()" style="grid-column:1/-1">Add / Update Product</button>
       </div>
     </div>

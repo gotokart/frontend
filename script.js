@@ -110,6 +110,29 @@ function getCategory(name) {
   return 'other';
 }
 
+/* ─── PRODUCT VISUAL (S3 image when present, emoji fallback) ─── */
+function productImageUrl(p) {
+  if (!p) return null;
+  // Backend may return a derived `imageUrl`, or just the raw S3 key.
+  if (p.imageUrl) return p.imageUrl;
+  if (p.imageKey) {
+    // Default-region public URL; safe even if a CDN domain is later added,
+    // since the backend can simply start returning `imageUrl` directly.
+    return `https://gotokart-product-images-035379289330-us-east-1-an.s3.us-east-1.amazonaws.com/${p.imageKey}`;
+  }
+  return null;
+}
+
+function productVisual(p) {
+  const url = productImageUrl(p);
+  if (url) {
+    const safeName = (p.name || '').replace(/"/g, '&quot;');
+    return `<img class="product-image" src="${url}" alt="${safeName}" loading="lazy"
+              onerror="this.outerHTML='<span class=&quot;product-emoji&quot;>${productEmoji(p.name)}</span>'">`;
+  }
+  return `<span class="product-emoji">${productEmoji(p.name)}</span>`;
+}
+
 /* ─── EMOJI MAP ───────────────────────────────────────── */
 function productEmoji(name) {
   const n = (name || '').toLowerCase();
@@ -515,7 +538,7 @@ function renderProducts(products) {
 
   grid.innerHTML = products.map((p, i) => `
     <div class="product-card" style="animation-delay:${i * 0.03}s">
-      <span class="product-emoji">${productEmoji(p.name)}</span>
+      ${productVisual(p)}
       ${p.category ? `<span class="product-category-tag">${p.category.name}</span>` : ''}
       <div class="product-name">${highlight(p.name || 'Unnamed', activeSearch)}</div>
       <div class="product-desc">${highlight(p.description || 'No description', activeSearch)}</div>
@@ -560,6 +583,33 @@ function toggleAdminPanel() {
 }
 
 /* ─── ADD PRODUCT (admin only) ─── sends JWT + category ── */
+async function uploadProductImage(productId, file) {
+  // Three-step S3 presigned-URL flow:
+  //   1) Backend signs a PUT URL  →  2) Browser PUTs bytes to S3  →  3) Backend persists the key
+  const ct = file.type;
+
+  const r1 = await fetch(
+    `${API}/products/${productId}/image-upload-url?contentType=${encodeURIComponent(ct)}`,
+    { method: 'POST', headers: authHeaders() }
+  );
+  if (!r1.ok) throw new Error(`Could not get upload URL (HTTP ${r1.status})`);
+  const { url, key } = await r1.json();
+
+  const r2 = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': ct },
+    body: file
+  });
+  if (!r2.ok) throw new Error(`S3 upload failed (HTTP ${r2.status})`);
+
+  const r3 = await fetch(`${API}/products/${productId}/image`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ imageKey: key })
+  });
+  if (!r3.ok) throw new Error(`Could not save image key (HTTP ${r3.status})`);
+}
+
 function addProduct() {
   const name        = document.getElementById('pName').value.trim();
   const description = document.getElementById('pDesc').value.trim();
@@ -567,9 +617,11 @@ function addProduct() {
   const stock       = parseInt(document.getElementById('pStock').value);
   const categoryId  = document.getElementById('pCategory').value;
   const newCatName  = document.getElementById('pNewCategory').value.trim();
+  const imageFile   = document.getElementById('pImage')?.files?.[0] || null;
 
   if (!name || isNaN(price) || isNaN(stock)) return toast('Please fill Name, Price and Stock', 'error');
   if (!categoryId && !newCatName) return toast('Please select or enter a category', 'error');
+  if (imageFile && imageFile.size > 1024 * 1024) return toast('Image must be 1 MB or smaller', 'error');
 
   const doSave = (resolvedCategoryId) => {
     const body = { name, description, price, stock };
@@ -582,10 +634,22 @@ function addProduct() {
       body: JSON.stringify(body)
     })
       .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t || 'Save failed'); }); return r.json(); })
-      .then(() => {
+      .then(async (saved) => {
+        if (imageFile && saved && saved.id) {
+          showSpinner('Uploading image to S3...');
+          try {
+            await uploadProductImage(saved.id, imageFile);
+          } catch (e) {
+            hideSpinner();
+            toast('Product saved, but image upload failed: ' + e.message, 'error');
+            return;
+          }
+        }
         hideSpinner();
         toast(`${productEmoji(name)} "${name}" saved! ✅`);
         ['pName','pDesc','pPrice','pStock','pNewCategory'].forEach(id => document.getElementById(id).value = '');
+        const imgInput = document.getElementById('pImage');
+        if (imgInput) imgInput.value = '';
         document.getElementById('pCategory').value = '';
         loadProducts();
         loadCategories();
