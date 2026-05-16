@@ -6,6 +6,8 @@
 <title>GoToKart — Shop Smarter</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<!-- Chart.js — loaded once for the Admin → Revenue tab. Plain JS, no build step. -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 </head>
 <body>
 
@@ -18,6 +20,7 @@
       Cart <span class="cart-badge" id="cartBadge">0</span>
     </a>
     <a href="#" onclick="showSection('orders')" class="nav-link" id="navOrders">Orders</a>
+    <a href="#" onclick="showSection('admin')" class="nav-link hidden" id="navAdmin">Admin</a>
     <a href="#" onclick="showSection('auth')" class="nav-link" id="authLink">Login</a>
     <button class="btn-logout hidden" id="logoutBtn" onclick="logoutUser()">Logout</button>
   </div>
@@ -56,6 +59,31 @@
     <p class="modal-msg" id="modalMsg"></p>
     <p class="modal-thanks">Thank you for shopping with <strong>GoToKart</strong> ❤️</p>
     <button class="btn-primary full" onclick="closeOrderModal()">Continue Shopping →</button>
+  </div>
+</div>
+
+<!-- ADMIN EDIT MODAL (used by Products, Categories, Coupons, Reviews) -->
+<div class="modal-overlay hidden" id="adminEditModal">
+  <div class="modal-box modal-box-wide">
+    <button class="modal-close" onclick="closeAdminEditModal()">✕</button>
+    <h2 class="modal-title" id="adminEditTitle">Edit</h2>
+    <div id="adminEditBody"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeAdminEditModal()">Cancel</button>
+      <button class="btn-primary" id="adminEditSave" onclick="adminEditSave()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN CONFIRM MODAL (delete prompts) -->
+<div class="modal-overlay hidden" id="adminConfirmModal">
+  <div class="modal-box">
+    <h2 class="modal-title" id="adminConfirmTitle">Are you sure?</h2>
+    <p class="modal-msg" id="adminConfirmMsg"></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeAdminConfirmModal()">Cancel</button>
+      <button class="btn-danger-solid" id="adminConfirmOk">Confirm</button>
+    </div>
   </div>
 </div>
 
@@ -188,6 +216,220 @@
   <section class="section hidden" id="ordersSection">
     <h2 class="section-title">Your Orders</h2>
     <div id="ordersContent"><div class="empty-state">📦 No orders yet</div></div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ADMIN DASHBOARD
+       Visible only when currentUser.role === 'ADMIN'.
+       Sub-tabs: Overview / Products / Orders / Users / Categories /
+                 Coupons / Reviews / Revenue
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="section hidden" id="adminSection">
+    <div class="admin-header">
+      <div>
+        <h2 class="section-title" style="margin-bottom:0.2rem">Admin Dashboard</h2>
+        <p class="admin-subtitle">Manage products, orders, users, and more.</p>
+      </div>
+      <div class="admin-quick-actions">
+        <button class="btn-secondary" onclick="refreshAdminTab()">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Sub-tab navigation -->
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-admin-tab="overview"   onclick="switchAdminTab('overview')">📊 Overview</button>
+      <button class="admin-tab"        data-admin-tab="products"   onclick="switchAdminTab('products')">📦 Products</button>
+      <button class="admin-tab"        data-admin-tab="orders"     onclick="switchAdminTab('orders')">🧾 Orders</button>
+      <button class="admin-tab"        data-admin-tab="users"      onclick="switchAdminTab('users')">👥 Users</button>
+      <button class="admin-tab"        data-admin-tab="categories" onclick="switchAdminTab('categories')">🏷️ Categories</button>
+      <button class="admin-tab"        data-admin-tab="coupons"    onclick="switchAdminTab('coupons')">🎟️ Coupons</button>
+      <button class="admin-tab"        data-admin-tab="reviews"    onclick="switchAdminTab('reviews')">⭐ Reviews</button>
+      <button class="admin-tab"        data-admin-tab="revenue"    onclick="switchAdminTab('revenue')">📈 Revenue</button>
+    </div>
+
+    <!-- ── OVERVIEW TAB ───────────────────────────────────────── -->
+    <div class="admin-tab-panel" id="adminPanel-overview">
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card kpi-loading">Loading…</div>
+      </div>
+
+      <div class="admin-two-col">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3>⚠️ Low Stock</h3>
+            <span class="admin-card-hint">Items with ≤ 5 units</span>
+          </div>
+          <div id="lowStockList" class="admin-list-skeleton">Loading…</div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3>🕒 Recent Orders</h3>
+            <span class="admin-card-hint">Newest first</span>
+          </div>
+          <div id="recentOrdersList" class="admin-list-skeleton">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PRODUCTS TAB ───────────────────────────────────────── -->
+    <div class="admin-tab-panel hidden" id="adminPanel-products">
+      <div class="admin-toolbar">
+        <input type="text" id="adminProductSearch" class="input admin-search"
+               placeholder="Search products by name…" oninput="renderAdminProducts()">
+        <select id="adminProductStock" class="input admin-filter" onchange="renderAdminProducts()">
+          <option value="all">All stock</option>
+          <option value="instock">In stock</option>
+          <option value="low">Low stock (≤5)</option>
+          <option value="out">Out of stock</option>
+        </select>
+        <button class="btn-secondary" onclick="openProductCreateModal()">➕ Add Product</button>
+        <button class="btn-secondary" onclick="exportCsv('products')">⬇ CSV</button>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="adminProductsTable">
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Category</th>
+              <th class="num">Price</th><th class="num">Stock</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="6" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── ORDERS TAB ─────────────────────────────────────────── -->
+    <div class="admin-tab-panel hidden" id="adminPanel-orders">
+      <div class="admin-toolbar">
+        <input type="text" id="adminOrderSearch" class="input admin-search"
+               placeholder="Search by customer email or order ID…" oninput="renderAdminOrders()">
+        <select id="adminOrderStatus" class="input admin-filter" onchange="renderAdminOrders()">
+          <option value="all">All statuses</option>
+          <option value="PLACED">Placed</option>
+          <option value="SHIPPED">Shipped</option>
+          <option value="DELIVERED">Delivered</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+        <button class="btn-secondary" onclick="exportCsv('orders')">⬇ CSV</button>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="adminOrdersTable">
+          <thead>
+            <tr>
+              <th>ID</th><th>Customer</th><th>Date</th>
+              <th class="num">Items</th><th class="num">Total</th>
+              <th>Status</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="7" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── USERS TAB ──────────────────────────────────────────── -->
+    <div class="admin-tab-panel hidden" id="adminPanel-users">
+      <div class="admin-toolbar">
+        <input type="text" id="adminUserSearch" class="input admin-search"
+               placeholder="Search users by name or email…" oninput="renderAdminUsers()">
+        <select id="adminUserRole" class="input admin-filter" onchange="renderAdminUsers()">
+          <option value="all">All roles</option>
+          <option value="ADMIN">Admin</option>
+          <option value="USER">User</option>
+        </select>
+        <button class="btn-secondary" onclick="exportCsv('users')">⬇ CSV</button>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="adminUsersTable">
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Email</th>
+              <th>Role</th><th>Status</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="6" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── CATEGORIES TAB ─────────────────────────────────────── -->
+    <div class="admin-tab-panel hidden" id="adminPanel-categories">
+      <div class="admin-toolbar">
+        <input type="text" id="adminNewCategory" class="input admin-search"
+               placeholder="New category name…" style="max-width:300px">
+        <button class="btn-secondary" onclick="adminCreateCategory()">➕ Add Category</button>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="adminCategoriesTable">
+          <thead>
+            <tr><th>ID</th><th>Name</th><th class="num">Products</th><th>Actions</th></tr>
+          </thead>
+          <tbody><tr><td colspan="4" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── COUPONS TAB ────────────────────────────────────────── -->
+    <div class="admin-tab-panel hidden" id="adminPanel-coupons">
+      <div class="admin-toolbar">
+        <button class="btn-secondary" onclick="openCouponCreateModal()">➕ New Coupon</button>
+        <button class="btn-secondary" onclick="exportCsv('coupons')">⬇ CSV</button>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="adminCouponsTable">
+          <thead>
+            <tr>
+              <th>Code</th><th class="num">%</th><th class="num">Used / Limit</th>
+              <th>Valid Until</th><th>Status</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="6" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── REVIEWS TAB ────────────────────────────────────────── -->
+    <div class="admin-tab-panel hidden" id="adminPanel-reviews">
+      <div class="admin-toolbar">
+        <select id="adminReviewStatus" class="input admin-filter" onchange="renderAdminReviews()">
+          <option value="all">All reviews</option>
+          <option value="PENDING">Pending only</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table" id="adminReviewsTable">
+          <thead>
+            <tr>
+              <th>Product</th><th>By</th>
+              <th class="num">Rating</th><th>Comment</th>
+              <th>Status</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="6" class="empty-row">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── REVENUE CHARTS TAB ─────────────────────────────────── -->
+    <div class="admin-tab-panel hidden" id="adminPanel-revenue">
+      <div class="admin-toolbar">
+        <label class="admin-filter-label">Period:</label>
+        <select id="adminRevenuePeriod" class="input admin-filter" onchange="renderRevenueChart()">
+          <option value="daily">Last 30 days</option>
+          <option value="weekly">Last 12 weeks</option>
+          <option value="monthly">Last 12 months</option>
+        </select>
+      </div>
+      <div class="admin-card admin-chart-card">
+        <canvas id="revenueChart" height="120"></canvas>
+      </div>
+      <div class="admin-card admin-chart-card">
+        <h3 style="margin-bottom:0.6rem">Orders per period</h3>
+        <canvas id="ordersChart" height="120"></canvas>
+      </div>
+    </div>
+
   </section>
 
 </main>

@@ -290,7 +290,7 @@ function closeOrderModal() {
 
 /* ─── NAVIGATION ──────────────────────────────────────── */
 function showSection(name) {
-  ['hero', 'auth', 'products', 'cart', 'orders'].forEach(s => {
+  ['hero', 'auth', 'products', 'cart', 'orders', 'admin'].forEach(s => {
     const el = document.getElementById(s + 'Section');
     if (el) el.classList.add('hidden');
   });
@@ -302,6 +302,7 @@ function showSection(name) {
   if (name === 'products') { loadProducts(); document.getElementById('navShop').classList.add('active'); }
   if (name === 'cart')     { loadCart();     document.getElementById('navCart').classList.add('active'); }
   if (name === 'orders')   { loadOrders();   document.getElementById('navOrders').classList.add('active'); }
+  if (name === 'admin')    { enterAdminDashboard(); document.getElementById('navAdmin').classList.add('active'); }
   if (name === 'auth')     { document.getElementById('authLink').classList.add('active'); }
 }
 
@@ -352,6 +353,7 @@ function onLoginSuccess() {
   updateCartBadge();
   const isAdmin = (currentUser.role || '').toUpperCase() === 'ADMIN';
   document.getElementById('adminToggleBtn').classList.toggle('hidden', !isAdmin);
+  document.getElementById('navAdmin').classList.toggle('hidden', !isAdmin);
   toast(`Welcome back, ${currentUser.name || 'User'}! 👋`);
   showSection('products');
 }
@@ -392,6 +394,7 @@ function logoutUser() {
   document.getElementById('cartBadge').textContent = '0';
   document.getElementById('adminToggleBtn').classList.add('hidden');
   document.getElementById('adminPanel').classList.add('hidden');
+  document.getElementById('navAdmin').classList.add('hidden');
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPassword').value = '';
   toast('Logged out successfully 👋');
@@ -893,6 +896,853 @@ function toggleOrderItems(orderId) {
   const tg = document.getElementById(`toggle-${orderId}`);
   if (el.classList.contains('hidden')) { el.classList.remove('hidden'); tg.textContent = '▲ Hide'; }
   else { el.classList.add('hidden'); tg.textContent = '▼ Details'; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADMIN DASHBOARD MODULE
+   All admin features (Overview / Products / Orders / Users /
+   Categories / Coupons / Reviews / Revenue). Self-contained — the
+   storefront keeps working with this file present even if no admin
+   ever logs in.
+   ═══════════════════════════════════════════════════════════════ */
+
+const ADMIN_STATE = {
+  currentTab: 'overview',
+  cache: {
+    stats: null,
+    products: [],
+    orders: [],
+    users: [],
+    categories: [],
+    coupons: [],
+    reviews: []
+  },
+  charts: { revenue: null, orders: null },
+  editContext: null  // { kind: 'product'|'coupon'|'category', id: number|null, payload: any }
+};
+
+function enterAdminDashboard() {
+  if (!currentUser || (currentUser.role || '').toUpperCase() !== 'ADMIN') {
+    toast('Admin access only', 'error');
+    showSection('hero');
+    return;
+  }
+  switchAdminTab(ADMIN_STATE.currentTab || 'overview');
+}
+
+function switchAdminTab(tab) {
+  ADMIN_STATE.currentTab = tab;
+  document.querySelectorAll('.admin-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.adminTab === tab);
+  });
+  document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.add('hidden'));
+  const panel = document.getElementById('adminPanel-' + tab);
+  if (panel) panel.classList.remove('hidden');
+  refreshAdminTab();
+}
+
+function refreshAdminTab() {
+  switch (ADMIN_STATE.currentTab) {
+    case 'overview':   return loadAdminOverview();
+    case 'products':   return loadAdminProducts();
+    case 'orders':     return loadAdminOrders();
+    case 'users':      return loadAdminUsers();
+    case 'categories': return loadAdminCategories();
+    case 'coupons':    return loadAdminCoupons();
+    case 'reviews':    return loadAdminReviews();
+    case 'revenue':    return renderRevenueChart();
+  }
+}
+
+/* ─── Tiny helpers ─────────────────────────────────────── */
+const adminEscape = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+const adminFmtINR = (n) => '₹' + (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+const adminFmtDate = (d) => {
+  if (!d) return '—';
+  try {
+    return new Date(d).toLocaleString('en-IN', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  } catch { return String(d); }
+};
+const adminStatusBadge = (status) => {
+  const s = String(status || '').toLowerCase();
+  return `<span class="status-badge ${s}">${adminEscape(status || 'UNKNOWN')}</span>`;
+};
+
+/* ─── Overview ─────────────────────────────────────────── */
+function loadAdminOverview() {
+  document.getElementById('kpiGrid').innerHTML = '<div class="kpi-card kpi-loading">Loading…</div>';
+  fetch(`${API}/admin/stats`, { headers: authHeaders() })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(stats => {
+      ADMIN_STATE.cache.stats = stats;
+      renderKpis(stats);
+      renderLowStock(stats.lowStockProducts || []);
+      renderRecentOrders(stats.recentOrders || []);
+    })
+    .catch(err => {
+      document.getElementById('kpiGrid').innerHTML =
+        `<div class="kpi-card kpi-loading">Failed to load: ${adminEscape(err.message)}</div>`;
+    });
+}
+
+function renderKpis(s) {
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value accent">${adminFmtINR(s.totalRevenue)}</div>
+      <div class="kpi-sub">Last 30 days: <strong>${adminFmtINR(s.revenueLast30Days)}</strong></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Orders</div>
+      <div class="kpi-value">${(s.totalOrders || 0).toLocaleString('en-IN')}</div>
+      <div class="kpi-sub">Last 30 days: <strong>${(s.ordersLast30Days || 0).toLocaleString('en-IN')}</strong></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Products</div>
+      <div class="kpi-value">${(s.totalProducts || 0).toLocaleString('en-IN')}</div>
+      <div class="kpi-sub">Low stock: <strong>${(s.lowStockCount || 0).toLocaleString('en-IN')}</strong></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Users</div>
+      <div class="kpi-value">${(s.totalUsers || 0).toLocaleString('en-IN')}</div>
+      <div class="kpi-sub">Categories: <strong>${(s.totalCategories || 0).toLocaleString('en-IN')}</strong></div>
+    </div>
+  `;
+}
+
+function renderLowStock(items) {
+  const el = document.getElementById('lowStockList');
+  if (!items.length) {
+    el.innerHTML = '<div class="admin-list-empty">🎉 Nothing low on stock right now.</div>';
+    return;
+  }
+  el.innerHTML = items.map(p => `
+    <div class="admin-list-row">
+      <div class="admin-list-row-name">${adminEscape(p.name)}</div>
+      <span class="status-badge low-stock">${p.stock} left</span>
+    </div>
+  `).join('');
+}
+
+function renderRecentOrders(orders) {
+  const el = document.getElementById('recentOrdersList');
+  if (!orders.length) {
+    el.innerHTML = '<div class="admin-list-empty">No orders yet.</div>';
+    return;
+  }
+  el.innerHTML = orders.map(o => `
+    <div class="admin-list-row">
+      <div class="admin-list-row-name">#${o.id} · ${adminEscape(o.user?.email || 'guest')}</div>
+      <span class="admin-list-row-meta">${adminFmtINR(o.totalAmount)} · ${adminStatusBadge(o.status)}</span>
+    </div>
+  `).join('');
+}
+
+/* ─── Products tab ─────────────────────────────────────── */
+function loadAdminProducts() {
+  return Promise.all([
+    fetch(`${API}/products`, { headers: authHeaders() }).then(r => r.json()),
+    fetch(`${API}/categories`, { headers: authHeaders() }).then(r => r.json())
+  ])
+  .then(([products, cats]) => {
+    ADMIN_STATE.cache.products   = products || [];
+    ADMIN_STATE.cache.categories = cats || [];
+    renderAdminProducts();
+  })
+  .catch(err => toast('Failed to load products: ' + err.message, 'error'));
+}
+
+function renderAdminProducts() {
+  const q     = (document.getElementById('adminProductSearch')?.value || '').toLowerCase();
+  const stock = document.getElementById('adminProductStock')?.value || 'all';
+  let list = [...ADMIN_STATE.cache.products];
+  if (q)               list = list.filter(p => (p.name || '').toLowerCase().includes(q));
+  if (stock === 'instock') list = list.filter(p => (p.stock || 0) > 5);
+  if (stock === 'low')     list = list.filter(p => (p.stock || 0) > 0 && (p.stock || 0) <= 5);
+  if (stock === 'out')     list = list.filter(p => (p.stock || 0) <= 0);
+
+  const tbody = document.querySelector('#adminProductsTable tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No products match.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(p => `
+    <tr>
+      <td>${p.id}</td>
+      <td>${adminEscape(p.name)}</td>
+      <td>${adminEscape(p.category?.name || '—')}</td>
+      <td class="num">${adminFmtINR(p.price)}</td>
+      <td class="num">
+        ${p.stock}
+        ${p.stock <= 0 ? ' <span class="status-badge cancelled">OUT</span>'
+          : p.stock <= 5 ? ' <span class="status-badge low-stock">LOW</span>' : ''}
+      </td>
+      <td>
+        <div class="cell-actions">
+          <button class="btn-mini" onclick="openProductEditModal(${p.id})">Edit</button>
+          <button class="btn-mini danger" onclick="confirmDeleteProduct(${p.id})">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openProductCreateModal() {
+  ADMIN_STATE.editContext = { kind: 'product', id: null, payload: {} };
+  document.getElementById('adminEditTitle').textContent = 'Add Product';
+  document.getElementById('adminEditBody').innerHTML = productFormHtml({});
+  openModal('adminEditModal');
+}
+
+function openProductEditModal(id) {
+  const p = ADMIN_STATE.cache.products.find(x => x.id === id);
+  if (!p) return toast('Product not found', 'error');
+  ADMIN_STATE.editContext = { kind: 'product', id, payload: p };
+  document.getElementById('adminEditTitle').textContent = `Edit Product #${id}`;
+  document.getElementById('adminEditBody').innerHTML = productFormHtml(p);
+  openModal('adminEditModal');
+}
+
+function productFormHtml(p) {
+  const cats = ADMIN_STATE.cache.categories
+    .map(c => `<option value="${c.id}" ${p.category && p.category.id === c.id ? 'selected' : ''}>${adminEscape(c.name)}</option>`)
+    .join('');
+  return `
+    <div class="admin-form">
+      <div class="form-group"><label>Name</label>
+        <input class="input" id="edit_pName" value="${adminEscape(p.name || '')}"></div>
+      <div class="form-group"><label>Category</label>
+        <select class="input" id="edit_pCategory"><option value="">— None —</option>${cats}</select></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Description</label>
+        <input class="input" id="edit_pDesc" value="${adminEscape(p.description || '')}"></div>
+      <div class="form-group"><label>Price (₹)</label>
+        <input type="number" step="0.01" class="input" id="edit_pPrice" value="${p.price ?? ''}"></div>
+      <div class="form-group"><label>Stock</label>
+        <input type="number" class="input" id="edit_pStock" value="${p.stock ?? ''}"></div>
+    </div>
+  `;
+}
+
+function confirmDeleteProduct(id) {
+  const p = ADMIN_STATE.cache.products.find(x => x.id === id);
+  openAdminConfirmModal(
+    'Delete product?',
+    `“${adminEscape(p?.name || ('#' + id))}” will be removed permanently.`,
+    () => {
+      fetch(`${API}/products/${id}`, { method: 'DELETE', headers: authHeaders() })
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
+        .then(() => { toast('Product deleted ✅'); closeAdminConfirmModal(); loadAdminProducts(); })
+        .catch(err => toast('Delete failed: ' + err.message, 'error'));
+    }
+  );
+}
+
+/* ─── Orders tab ───────────────────────────────────────── */
+function loadAdminOrders() {
+  fetch(`${API}/orders`, { headers: authHeaders() })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(orders => { ADMIN_STATE.cache.orders = orders || []; renderAdminOrders(); })
+    .catch(err => toast('Failed to load orders: ' + err.message, 'error'));
+}
+
+function renderAdminOrders() {
+  const q      = (document.getElementById('adminOrderSearch')?.value || '').toLowerCase();
+  const status = document.getElementById('adminOrderStatus')?.value || 'all';
+  let list = [...ADMIN_STATE.cache.orders];
+  if (status !== 'all') list = list.filter(o => (o.status || '').toUpperCase() === status);
+  if (q) list = list.filter(o =>
+    String(o.id).includes(q) ||
+    (o.user?.email || '').toLowerCase().includes(q) ||
+    (o.user?.name  || '').toLowerCase().includes(q)
+  );
+
+  const tbody = document.querySelector('#adminOrdersTable tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No orders match.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(o => `
+    <tr>
+      <td>#${o.id}</td>
+      <td>${adminEscape(o.user?.email || o.user?.name || 'guest')}</td>
+      <td>${adminFmtDate(o.createdAt)}</td>
+      <td class="num">${(o.items || []).reduce((s, it) => s + (it.quantity || 0), 0)}</td>
+      <td class="num">${adminFmtINR(o.totalAmount)}</td>
+      <td>
+        <select class="cell-select" onchange="updateOrderStatus(${o.id}, this.value)">
+          ${['PLACED','SHIPPED','DELIVERED','CANCELLED'].map(s =>
+            `<option value="${s}" ${o.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <div class="cell-actions">
+          <button class="btn-mini" onclick="showOrderDetailsModal(${o.id})">Details</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function updateOrderStatus(id, status) {
+  fetch(`${API}/orders/${id}/status`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ status })
+  })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t || 'Update failed'); }); return r.json(); })
+    .then(updated => {
+      const idx = ADMIN_STATE.cache.orders.findIndex(o => o.id === id);
+      if (idx >= 0) ADMIN_STATE.cache.orders[idx] = updated;
+      toast(`Order #${id} → ${status}`);
+    })
+    .catch(err => { toast('Status update failed: ' + err.message, 'error'); loadAdminOrders(); });
+}
+
+function showOrderDetailsModal(id) {
+  const o = ADMIN_STATE.cache.orders.find(x => x.id === id);
+  if (!o) return toast('Order not found', 'error');
+  ADMIN_STATE.editContext = { kind: 'orderDetails', id: null, payload: null };  // read-only
+  document.getElementById('adminEditTitle').textContent = `Order #${id} · ${adminEscape(o.status || '')}`;
+  document.getElementById('adminEditBody').innerHTML = `
+    <p style="margin-bottom:0.5rem;color:var(--text2);font-size:0.85rem">
+      ${adminFmtDate(o.createdAt)} · <strong>${adminEscape(o.user?.email || '—')}</strong>
+    </p>
+    <div class="order-detail-list">
+      ${(o.items || []).map(it => `
+        <div class="row">
+          <span>${adminEscape(it.productName)} <span style="color:var(--text2)">× ${it.quantity}</span></span>
+          <span><strong>${adminFmtINR(it.subtotal)}</strong></span>
+        </div>
+      `).join('')}
+      <div class="row" style="margin-top:0.5rem;border-top:1px solid var(--border);padding-top:0.7rem">
+        <strong>Total</strong><strong style="color:var(--accent)">${adminFmtINR(o.totalAmount)}</strong>
+      </div>
+    </div>
+  `;
+  document.getElementById('adminEditSave').classList.add('hidden');
+  openModal('adminEditModal');
+}
+
+/* ─── Users tab ────────────────────────────────────────── */
+function loadAdminUsers() {
+  fetch(`${API}/users`, { headers: authHeaders() })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(users => { ADMIN_STATE.cache.users = users || []; renderAdminUsers(); })
+    .catch(err => toast('Failed to load users: ' + err.message, 'error'));
+}
+
+function renderAdminUsers() {
+  const q    = (document.getElementById('adminUserSearch')?.value || '').toLowerCase();
+  const role = document.getElementById('adminUserRole')?.value || 'all';
+  let list = [...ADMIN_STATE.cache.users];
+  if (role !== 'all') list = list.filter(u => (u.role || '').toUpperCase() === role);
+  if (q) list = list.filter(u =>
+    (u.name  || '').toLowerCase().includes(q) ||
+    (u.email || '').toLowerCase().includes(q)
+  );
+
+  const tbody = document.querySelector('#adminUsersTable tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No users match.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(u => {
+    const isMe = currentUser && currentUser.id === u.id;
+    const active = u.active !== false; // undefined/null treated as active
+    return `
+      <tr>
+        <td>${u.id}</td>
+        <td>${adminEscape(u.name || '—')}${isMe ? ' <span class="status-badge admin-role">YOU</span>' : ''}</td>
+        <td>${adminEscape(u.email)}</td>
+        <td>
+          <select class="cell-select" ${isMe ? 'disabled' : ''} onchange="updateUserRole(${u.id}, this.value)">
+            <option value="USER"  ${u.role === 'USER'  ? 'selected' : ''}>USER</option>
+            <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option>
+          </select>
+        </td>
+        <td>${active ? '<span class="status-badge active">ACTIVE</span>' : '<span class="status-badge inactive">INACTIVE</span>'}</td>
+        <td>
+          <div class="cell-actions">
+            <button class="btn-mini ${active ? 'danger' : 'primary'}" ${isMe ? 'disabled' : ''}
+                    onclick="toggleUserActive(${u.id}, ${!active})">
+              ${active ? 'Deactivate' : 'Reactivate'}
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updateUserRole(id, role) {
+  fetch(`${API}/admin/users/${id}/role`, {
+    method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ role })
+  })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t); }); return r.json(); })
+    .then(u => {
+      const idx = ADMIN_STATE.cache.users.findIndex(x => x.id === id);
+      if (idx >= 0) ADMIN_STATE.cache.users[idx] = u;
+      toast(`Role updated → ${role}`);
+    })
+    .catch(err => { toast('Role update failed: ' + err.message, 'error'); loadAdminUsers(); });
+}
+
+function toggleUserActive(id, active) {
+  fetch(`${API}/admin/users/${id}/active`, {
+    method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ active })
+  })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t); }); return r.json(); })
+    .then(u => {
+      const idx = ADMIN_STATE.cache.users.findIndex(x => x.id === id);
+      if (idx >= 0) ADMIN_STATE.cache.users[idx] = u;
+      toast(active ? 'User reactivated' : 'User deactivated');
+      renderAdminUsers();
+    })
+    .catch(err => { toast('Update failed: ' + err.message, 'error'); loadAdminUsers(); });
+}
+
+/* ─── Categories tab ───────────────────────────────────── */
+function loadAdminCategories() {
+  return Promise.all([
+    fetch(`${API}/categories`, { headers: authHeaders() }).then(r => r.json()),
+    fetch(`${API}/products`,   { headers: authHeaders() }).then(r => r.json())
+  ])
+  .then(([cats, products]) => {
+    ADMIN_STATE.cache.categories = cats || [];
+    ADMIN_STATE.cache.products   = products || [];
+    renderAdminCategories();
+  })
+  .catch(err => toast('Failed to load categories: ' + err.message, 'error'));
+}
+
+function renderAdminCategories() {
+  const counts = ADMIN_STATE.cache.products.reduce((acc, p) => {
+    const id = p.category?.id;
+    if (id != null) acc[id] = (acc[id] || 0) + 1;
+    return acc;
+  }, {});
+
+  const tbody = document.querySelector('#adminCategoriesTable tbody');
+  if (!ADMIN_STATE.cache.categories.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-row">No categories yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = ADMIN_STATE.cache.categories.map(c => `
+    <tr>
+      <td>${c.id}</td>
+      <td>${adminEscape(c.name)}</td>
+      <td class="num">${counts[c.id] || 0}</td>
+      <td>
+        <div class="cell-actions">
+          <button class="btn-mini" onclick="openCategoryEditModal(${c.id})">Edit</button>
+          <button class="btn-mini danger" onclick="confirmDeleteCategory(${c.id})">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function adminCreateCategory() {
+  const name = document.getElementById('adminNewCategory').value.trim();
+  if (!name) return toast('Enter a category name', 'error');
+  fetch(`${API}/categories`, {
+    method: 'POST', headers: authHeaders(), body: JSON.stringify({ name })
+  })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t); }); return r.json(); })
+    .then(() => {
+      document.getElementById('adminNewCategory').value = '';
+      toast(`Category “${name}” added ✅`);
+      loadAdminCategories();
+      loadCategories(); // keep storefront chips in sync
+    })
+    .catch(err => toast('Create failed: ' + err.message, 'error'));
+}
+
+function openCategoryEditModal(id) {
+  const c = ADMIN_STATE.cache.categories.find(x => x.id === id);
+  if (!c) return;
+  ADMIN_STATE.editContext = { kind: 'category', id, payload: c };
+  document.getElementById('adminEditTitle').textContent = `Edit Category #${id}`;
+  document.getElementById('adminEditBody').innerHTML = `
+    <div class="form-group"><label>Name</label>
+      <input class="input" id="edit_cName" value="${adminEscape(c.name)}"></div>
+  `;
+  openModal('adminEditModal');
+}
+
+function confirmDeleteCategory(id) {
+  const c = ADMIN_STATE.cache.categories.find(x => x.id === id);
+  openAdminConfirmModal(
+    'Delete category?',
+    `“${adminEscape(c?.name || '#' + id)}” will be removed. Products in this category will become uncategorised.`,
+    () => {
+      fetch(`${API}/categories/${id}`, { method: 'DELETE', headers: authHeaders() })
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
+        .then(() => { toast('Category deleted'); closeAdminConfirmModal(); loadAdminCategories(); loadCategories(); })
+        .catch(err => toast('Delete failed: ' + err.message, 'error'));
+    }
+  );
+}
+
+/* ─── Coupons tab ──────────────────────────────────────── */
+function loadAdminCoupons() {
+  fetch(`${API}/coupons`, { headers: authHeaders() })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(coupons => { ADMIN_STATE.cache.coupons = coupons || []; renderAdminCoupons(); })
+    .catch(err => toast('Failed to load coupons: ' + err.message, 'error'));
+}
+
+function renderAdminCoupons() {
+  const tbody = document.querySelector('#adminCouponsTable tbody');
+  if (!ADMIN_STATE.cache.coupons.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No coupons yet. Click “New Coupon”.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = ADMIN_STATE.cache.coupons.map(c => `
+    <tr>
+      <td><strong>${adminEscape(c.code)}</strong></td>
+      <td class="num">${c.discountPercent || 0}%</td>
+      <td class="num">${c.usedCount || 0} / ${c.usageLimit ?? '∞'}</td>
+      <td>${c.validUntil ? adminFmtDate(c.validUntil) : '—'}</td>
+      <td>${c.active ? '<span class="status-badge active">ACTIVE</span>' : '<span class="status-badge inactive">INACTIVE</span>'}</td>
+      <td>
+        <div class="cell-actions">
+          <button class="btn-mini" onclick="openCouponEditModal(${c.id})">Edit</button>
+          <button class="btn-mini danger" onclick="confirmDeleteCoupon(${c.id})">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openCouponCreateModal() {
+  ADMIN_STATE.editContext = { kind: 'coupon', id: null, payload: {} };
+  document.getElementById('adminEditTitle').textContent = 'New Coupon';
+  document.getElementById('adminEditBody').innerHTML = couponFormHtml({});
+  openModal('adminEditModal');
+}
+
+function openCouponEditModal(id) {
+  const c = ADMIN_STATE.cache.coupons.find(x => x.id === id);
+  if (!c) return;
+  ADMIN_STATE.editContext = { kind: 'coupon', id, payload: c };
+  document.getElementById('adminEditTitle').textContent = `Edit Coupon #${id}`;
+  document.getElementById('adminEditBody').innerHTML = couponFormHtml(c);
+  openModal('adminEditModal');
+}
+
+function couponFormHtml(c) {
+  const dt = c.validUntil ? new Date(c.validUntil).toISOString().slice(0, 16) : '';
+  const isNew = !c.id;
+  return `
+    <div class="admin-form">
+      <div class="form-group"><label>Code</label>
+        <input class="input" id="edit_cpCode" value="${adminEscape(c.code || '')}" ${isNew ? '' : 'disabled'} placeholder="WELCOME20"></div>
+      <div class="form-group"><label>Discount %</label>
+        <input type="number" min="1" max="100" class="input" id="edit_cpPercent" value="${c.discountPercent ?? ''}"></div>
+      <div class="form-group"><label>Valid Until</label>
+        <input type="datetime-local" class="input" id="edit_cpValidUntil" value="${dt}"></div>
+      <div class="form-group"><label>Usage Limit</label>
+        <input type="number" min="1" class="input" id="edit_cpUsageLimit" value="${c.usageLimit ?? ''}" placeholder="leave blank for unlimited"></div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label style="display:flex;align-items:center;gap:0.4rem;text-transform:none;letter-spacing:normal">
+          <input type="checkbox" id="edit_cpActive" ${c.active !== false ? 'checked' : ''}>
+          <span>Active</span>
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function confirmDeleteCoupon(id) {
+  const c = ADMIN_STATE.cache.coupons.find(x => x.id === id);
+  openAdminConfirmModal(
+    'Delete coupon?',
+    `“${adminEscape(c?.code || '#' + id)}” will be removed.`,
+    () => {
+      fetch(`${API}/coupons/${id}`, { method: 'DELETE', headers: authHeaders() })
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
+        .then(() => { toast('Coupon deleted'); closeAdminConfirmModal(); loadAdminCoupons(); })
+        .catch(err => toast('Delete failed: ' + err.message, 'error'));
+    }
+  );
+}
+
+/* ─── Reviews tab ──────────────────────────────────────── */
+function loadAdminReviews() {
+  fetch(`${API}/reviews`, { headers: authHeaders() })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(reviews => { ADMIN_STATE.cache.reviews = reviews || []; renderAdminReviews(); })
+    .catch(err => toast('Failed to load reviews: ' + err.message, 'error'));
+}
+
+function renderAdminReviews() {
+  const status = document.getElementById('adminReviewStatus')?.value || 'all';
+  let list = [...ADMIN_STATE.cache.reviews];
+  if (status !== 'all') list = list.filter(r => (r.status || '').toUpperCase() === status);
+
+  const tbody = document.querySelector('#adminReviewsTable tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">No reviews to moderate.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(r => {
+    const stars = '★'.repeat(r.rating || 0) + '☆'.repeat(5 - (r.rating || 0));
+    return `
+      <tr>
+        <td>${adminEscape(r.product?.name || '—')}</td>
+        <td>${adminEscape(r.user?.email || r.user?.name || 'guest')}</td>
+        <td class="num"><span class="star-rating">${stars}</span></td>
+        <td style="max-width:340px;word-wrap:break-word">${adminEscape(r.comment || '—')}</td>
+        <td>${adminStatusBadge(r.status)}</td>
+        <td>
+          <div class="cell-actions">
+            ${r.status !== 'APPROVED' ? `<button class="btn-mini primary" onclick="moderateReview(${r.id}, 'APPROVED')">Approve</button>` : ''}
+            ${r.status !== 'REJECTED' ? `<button class="btn-mini danger" onclick="moderateReview(${r.id}, 'REJECTED')">Reject</button>` : ''}
+            <button class="btn-mini" onclick="confirmDeleteReview(${r.id})">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function moderateReview(id, status) {
+  fetch(`${API}/reviews/${id}/status`, {
+    method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ status })
+  })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t); }); return r.json(); })
+    .then(updated => {
+      const idx = ADMIN_STATE.cache.reviews.findIndex(x => x.id === id);
+      if (idx >= 0) ADMIN_STATE.cache.reviews[idx] = updated;
+      toast(`Review ${status.toLowerCase()}`);
+      renderAdminReviews();
+    })
+    .catch(err => toast('Moderation failed: ' + err.message, 'error'));
+}
+
+function confirmDeleteReview(id) {
+  openAdminConfirmModal('Delete review?', 'This action cannot be undone.', () => {
+    fetch(`${API}/reviews/${id}`, { method: 'DELETE', headers: authHeaders() })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
+      .then(() => { toast('Review deleted'); closeAdminConfirmModal(); loadAdminReviews(); })
+      .catch(err => toast('Delete failed: ' + err.message, 'error'));
+  });
+}
+
+/* ─── Revenue charts tab ───────────────────────────────── */
+function renderRevenueChart() {
+  const period = document.getElementById('adminRevenuePeriod')?.value || 'daily';
+  fetch(`${API}/admin/revenue?period=${encodeURIComponent(period)}`, { headers: authHeaders() })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(buckets => drawCharts(buckets || []))
+    .catch(err => toast('Failed to load revenue: ' + err.message, 'error'));
+}
+
+function drawCharts(buckets) {
+  if (typeof Chart === 'undefined') {
+    return toast('Chart.js failed to load (check your network).', 'error');
+  }
+  const labels   = buckets.map(b => b.period);
+  const revenue  = buckets.map(b => b.revenue);
+  const orderCt  = buckets.map(b => b.orders);
+
+  // Chart.js requires you to destroy the previous instance before re-using a canvas.
+  if (ADMIN_STATE.charts.revenue) ADMIN_STATE.charts.revenue.destroy();
+  if (ADMIN_STATE.charts.orders)  ADMIN_STATE.charts.orders.destroy();
+
+  const baseOpts = {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#9a9890' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      y: { ticks: { color: '#9a9890' }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+    }
+  };
+
+  ADMIN_STATE.charts.revenue = new Chart(document.getElementById('revenueChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Revenue',
+        data: revenue,
+        backgroundColor: 'rgba(245,166,35,0.5)',
+        borderColor: 'rgba(245,166,35,1)',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: baseOpts
+  });
+
+  ADMIN_STATE.charts.orders = new Chart(document.getElementById('ordersChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Orders',
+        data: orderCt,
+        borderColor: 'rgba(232,71,42,1)',
+        backgroundColor: 'rgba(232,71,42,0.15)',
+        tension: 0.3,
+        fill: true,
+        pointRadius: 3
+      }]
+    },
+    options: baseOpts
+  });
+}
+
+/* ─── Modal helpers ────────────────────────────────────── */
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.add('hidden');   document.body.style.overflow = ''; }
+
+function closeAdminEditModal() {
+  closeModal('adminEditModal');
+  document.getElementById('adminEditSave').classList.remove('hidden');
+  ADMIN_STATE.editContext = null;
+}
+
+function openAdminConfirmModal(title, msg, onOk) {
+  document.getElementById('adminConfirmTitle').textContent = title;
+  document.getElementById('adminConfirmMsg').textContent = msg;
+  const btn = document.getElementById('adminConfirmOk');
+  btn.onclick = () => onOk();
+  openModal('adminConfirmModal');
+}
+function closeAdminConfirmModal() { closeModal('adminConfirmModal'); }
+
+/* ─── Edit-modal Save dispatcher ───────────────────────── */
+function adminEditSave() {
+  const ctx = ADMIN_STATE.editContext;
+  if (!ctx) return closeAdminEditModal();
+
+  if (ctx.kind === 'product')  return saveProductFromModal(ctx);
+  if (ctx.kind === 'category') return saveCategoryFromModal(ctx);
+  if (ctx.kind === 'coupon')   return saveCouponFromModal(ctx);
+}
+
+function saveProductFromModal(ctx) {
+  const name        = document.getElementById('edit_pName').value.trim();
+  const description = document.getElementById('edit_pDesc').value.trim();
+  const price       = parseFloat(document.getElementById('edit_pPrice').value);
+  const stock       = parseInt(document.getElementById('edit_pStock').value, 10);
+  const catId       = document.getElementById('edit_pCategory').value;
+
+  if (!name || isNaN(price) || isNaN(stock)) return toast('Name, price and stock are required', 'error');
+
+  const body = { name, description, price, stock };
+  if (catId) body.category = { id: parseInt(catId, 10) };
+
+  const url    = ctx.id ? `${API}/products/${ctx.id}` : `${API}/products`;
+  const method = ctx.id ? 'PUT' : 'POST';
+
+  fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t); }); return r.json(); })
+    .then(() => { toast(ctx.id ? 'Product updated ✅' : 'Product created ✅'); closeAdminEditModal(); loadAdminProducts(); })
+    .catch(err => toast('Save failed: ' + err.message, 'error'));
+}
+
+function saveCategoryFromModal(ctx) {
+  const name = document.getElementById('edit_cName').value.trim();
+  if (!name) return toast('Name required', 'error');
+  fetch(`${API}/categories/${ctx.id}`, {
+    method: 'PUT', headers: authHeaders(), body: JSON.stringify({ name })
+  })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t); }); return r.json(); })
+    .then(() => { toast('Category updated'); closeAdminEditModal(); loadAdminCategories(); loadCategories(); })
+    .catch(err => toast('Save failed: ' + err.message, 'error'));
+}
+
+function saveCouponFromModal(ctx) {
+  const isNew     = !ctx.id;
+  const codeInput = document.getElementById('edit_cpCode').value.trim().toUpperCase();
+  const percent   = parseInt(document.getElementById('edit_cpPercent').value, 10);
+  const validUntilRaw = document.getElementById('edit_cpValidUntil').value;
+  const usageLimit    = document.getElementById('edit_cpUsageLimit').value;
+  const active        = document.getElementById('edit_cpActive').checked;
+
+  if (isNew && !codeInput) return toast('Code required', 'error');
+  if (isNaN(percent) || percent < 1 || percent > 100) return toast('Discount must be 1–100', 'error');
+
+  const body = {
+    discountPercent: percent,
+    validUntil: validUntilRaw ? new Date(validUntilRaw).toISOString() : null,
+    usageLimit: usageLimit === '' ? null : parseInt(usageLimit, 10),
+    active
+  };
+  if (isNew) body.code = codeInput;
+
+  const url    = isNew ? `${API}/coupons` : `${API}/coupons/${ctx.id}`;
+  const method = isNew ? 'POST' : 'PUT';
+
+  fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t); }); return r.json(); })
+    .then(() => { toast(isNew ? 'Coupon created ✅' : 'Coupon updated ✅'); closeAdminEditModal(); loadAdminCoupons(); })
+    .catch(err => toast('Save failed: ' + err.message, 'error'));
+}
+
+/* ─── CSV export (client-side only — no backend trip) ──── */
+function exportCsv(kind) {
+  const rows = csvRowsFor(kind);
+  if (!rows || rows.length < 2) return toast('Nothing to export', 'error');
+
+  const csv = rows.map(r => r.map(cell => {
+    const v = cell == null ? '' : String(cell);
+    return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }).join(',')).join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `gotokart-${kind}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast(`Exported ${rows.length - 1} ${kind} rows ✅`);
+}
+
+function csvRowsFor(kind) {
+  switch (kind) {
+    case 'products': {
+      const rows = [['id', 'name', 'description', 'price', 'stock', 'category']];
+      ADMIN_STATE.cache.products.forEach(p => rows.push([
+        p.id, p.name, p.description, p.price, p.stock, p.category?.name || ''
+      ]));
+      return rows;
+    }
+    case 'orders': {
+      const rows = [['id', 'createdAt', 'email', 'status', 'totalAmount', 'items']];
+      ADMIN_STATE.cache.orders.forEach(o => rows.push([
+        o.id,
+        o.createdAt || '',
+        o.user?.email || '',
+        o.status || '',
+        o.totalAmount || 0,
+        (o.items || []).reduce((s, it) => s + (it.quantity || 0), 0)
+      ]));
+      return rows;
+    }
+    case 'users': {
+      const rows = [['id', 'name', 'email', 'role', 'active']];
+      ADMIN_STATE.cache.users.forEach(u => rows.push([u.id, u.name, u.email, u.role, u.active !== false]));
+      return rows;
+    }
+    case 'coupons': {
+      const rows = [['id', 'code', 'discountPercent', 'usedCount', 'usageLimit', 'validUntil', 'active']];
+      ADMIN_STATE.cache.coupons.forEach(c => rows.push([
+        c.id, c.code, c.discountPercent, c.usedCount, c.usageLimit, c.validUntil || '', c.active !== false
+      ]));
+      return rows;
+    }
+  }
+  return null;
 }
 
 /* ─── INIT ────────────────────────────────────────────── */
