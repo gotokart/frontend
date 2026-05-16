@@ -184,9 +184,51 @@ select.input option { background: var(--bg3); }
 .stepper-btn { width: 30px; height: 30px; background: transparent; color: var(--text); border: none; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; justify-content: center; }
 .stepper-btn:hover { background: rgba(245,166,35,0.15); color: var(--accent); }
 .stepper-qty { min-width: 30px; text-align: center; font-size: 0.88rem; font-weight: 600; }
-.cart-footer { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); border: 1px solid rgba(245,166,35,0.2); border-radius: var(--radius); padding: 1.3rem 1.8rem; margin-top: 1rem; }
+.cart-footer { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); border: 1px solid rgba(245,166,35,0.2); border-radius: var(--radius); padding: 1.3rem 1.8rem; margin-top: 1rem; gap: 1rem; flex-wrap: wrap; }
 .cart-total { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; }
 .cart-total span { color: var(--accent); }
+
+/* Cart summary (subtotal / discount / total breakdown) */
+.cart-summary { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cart-summary-line { display: flex; justify-content: space-between; gap: 1.5rem; font-size: 0.9rem; color: var(--text2); }
+.cart-summary-line.discount { color: #3fb950; }
+.cart-summary-line.total { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text); margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+.cart-summary-line.total .amount { color: var(--accent); }
+
+/* Coupon row — sits between cart items and the cart footer */
+.coupon-row { margin-top: 1rem; }
+.coupon-input-wrap {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.7rem 1rem;
+  transition: border-color 0.2s;
+}
+.coupon-input-wrap:focus-within { border-color: rgba(245,166,35,0.4); }
+.coupon-icon { font-size: 1.2rem; flex-shrink: 0; }
+.coupon-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text); font-family: var(--font-body); font-size: 0.9rem;
+  letter-spacing: 0.5px; text-transform: uppercase; padding: 0.3rem 0;
+  min-width: 120px;
+}
+.coupon-input::placeholder { color: var(--text2); text-transform: none; letter-spacing: normal; }
+.coupon-apply-btn { padding: 0.5rem 1.2rem; flex-shrink: 0; }
+
+.coupon-applied {
+  display: flex; align-items: center; gap: 0.8rem;
+  background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.25);
+  border-radius: var(--radius); padding: 0.8rem 1.1rem;
+}
+.coupon-applied-icon { font-size: 1.2rem; }
+.coupon-applied-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.coupon-applied-text strong { font-size: 0.95rem; letter-spacing: 0.5px; color: #3fb950; }
+.coupon-applied-desc { font-size: 0.8rem; color: var(--text2); }
+.coupon-remove-btn {
+  background: transparent; color: var(--text2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.35rem 0.7rem; font-size: 0.75rem; cursor: pointer;
+  font-family: var(--font-body); transition: all 0.2s; flex-shrink: 0;
+}
+.coupon-remove-btn:hover { color: var(--accent2); border-color: rgba(232,71,42,0.3); }
 
 /* ORDERS */
 .order-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.3rem 1.8rem; margin-bottom: 0.8rem; animation: fadeUp 0.3s ease both; }
