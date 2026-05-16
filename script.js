@@ -24,6 +24,11 @@ let allCategories = [];
 let activeCategory = 'all';  // category id (number) or 'all'
 let activeSearch   = '';
 
+// Coupon applied to the cart (cleared after a successful order or on logout).
+// Shape: { code: 'WELCOME20', discountPercent: 20 } | null
+let appliedCoupon = null;
+let cartSubtotal  = 0;  // most recent subtotal seen in renderCart, used by applyCoupon's math
+
 /* ─── JWT HELPER ──────────────────────────────────────── */
 function authHeaders() {
   return jwtToken
@@ -277,10 +282,13 @@ function toast(msg, type = 'success') {
 }
 
 /* ─── ORDER MODAL ─────────────────────────────────────── */
-function showOrderModal(orderId, total) {
+function showOrderModal(orderId, total, discount) {
+  const savings = (discount || 0) > 0
+    ? `<br><span style="color:#3fb950;font-size:0.9rem">You saved ₹${(discount).toLocaleString('en-IN')} 🎉</span>`
+    : '';
   document.getElementById('modalMsg').innerHTML =
     `Your Order <strong>#${orderId}</strong> placed successfully!<br>
-     Total: <strong style="color:var(--accent)">₹${(total || 0).toLocaleString('en-IN')}</strong>`;
+     Total: <strong style="color:var(--accent)">₹${(total || 0).toLocaleString('en-IN')}</strong>${savings}`;
   document.getElementById('orderModal').classList.remove('hidden');
 }
 function closeOrderModal() {
@@ -387,6 +395,7 @@ function registerUser() {
 function logoutUser() {
   currentUser = null;
   jwtToken = null;
+  appliedCoupon = null;
   localStorage.removeItem('gk_token');
   document.getElementById('authLink').textContent = 'Login';
   document.getElementById('authLink').onclick = () => showSection('auth');
@@ -712,15 +721,22 @@ function loadCart() {
 }
 
 function renderCart(items) {
-  const content = document.getElementById('cartContent');
-  const footer  = document.getElementById('cartFooter');
+  const content   = document.getElementById('cartContent');
+  const footer    = document.getElementById('cartFooter');
+  const couponRow = document.getElementById('couponRow');
+
   if (!items || !items.length) {
     content.innerHTML = `<div class="empty-state">🛒 Your cart is empty<br>
       <small style="color:var(--text2);font-size:0.8rem">Add some products to get started!</small></div>`;
     footer.classList.add('hidden');
+    couponRow.classList.add('hidden');
+    // An empty cart can't carry a coupon — drop it so checkout state stays clean.
+    appliedCoupon = null;
     return;
   }
-  const total = items.reduce((sum, i) => sum + ((i.product?.price || 0) * (i.quantity || 1)), 0);
+
+  cartSubtotal = items.reduce((sum, i) => sum + ((i.product?.price || 0) * (i.quantity || 1)), 0);
+
   content.innerHTML = items.map(item => `
     <div class="cart-item" id="cart-item-${item.id}">
       <div class="cart-item-left">
@@ -741,8 +757,95 @@ function renderCart(items) {
       </div>
     </div>
   `).join('');
-  document.getElementById('cartTotal').innerHTML = `Total: <span>₹${total.toLocaleString('en-IN')}</span>`;
+
+  couponRow.classList.remove('hidden');
+  renderCouponState();
+  renderCartSummary();
   footer.classList.remove('hidden');
+}
+
+/**
+ * Builds the subtotal / discount / total breakdown shown above the
+ * "Place Order" button. Called after every cart mutation and every
+ * coupon apply/remove.
+ */
+function renderCartSummary() {
+  const summary  = document.getElementById('cartSummary');
+  if (!summary) return;
+  const discount = appliedCoupon
+    ? Math.round(cartSubtotal * (appliedCoupon.discountPercent || 0)) / 100
+    : 0;
+  const total    = Math.max(0, cartSubtotal - discount);
+
+  summary.innerHTML = `
+    <div class="cart-summary-line">
+      <span>Subtotal</span>
+      <span>₹${cartSubtotal.toLocaleString('en-IN')}</span>
+    </div>
+    ${appliedCoupon ? `
+      <div class="cart-summary-line discount">
+        <span>Discount (${appliedCoupon.code} · ${appliedCoupon.discountPercent}%)</span>
+        <span>− ₹${discount.toLocaleString('en-IN')}</span>
+      </div>
+    ` : ''}
+    <div class="cart-summary-line total">
+      <span>Total</span>
+      <span class="amount">₹${total.toLocaleString('en-IN')}</span>
+    </div>
+  `;
+}
+
+/** Swaps between the input box and the "applied ✅" box. */
+function renderCouponState() {
+  const wrap    = document.getElementById('couponInputWrap');
+  const applied = document.getElementById('couponAppliedBox');
+  if (!wrap || !applied) return;
+  if (appliedCoupon) {
+    wrap.classList.add('hidden');
+    applied.classList.remove('hidden');
+    document.getElementById('couponAppliedCode').textContent = appliedCoupon.code;
+    const discount = Math.round(cartSubtotal * (appliedCoupon.discountPercent || 0)) / 100;
+    document.getElementById('couponAppliedDesc').textContent =
+      `${appliedCoupon.discountPercent}% off · you save ₹${discount.toLocaleString('en-IN')}`;
+  } else {
+    wrap.classList.remove('hidden');
+    applied.classList.add('hidden');
+    const input = document.getElementById('couponCodeInput');
+    if (input) input.value = '';
+  }
+}
+
+function applyCoupon() {
+  const codeInput = document.getElementById('couponCodeInput');
+  const code = (codeInput?.value || '').trim().toUpperCase();
+  if (!code) return toast('Please enter a coupon code', 'error');
+  if (!currentUser) return toast('Please login first', 'error');
+
+  const btn = document.querySelector('.coupon-apply-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  fetch(`${API}/coupons/validate?code=${encodeURIComponent(code)}`, {
+    headers: authHeaders()
+  })
+    .then(r => {
+      if (!r.ok) return r.text().then(t => { throw new Error(t || `Coupon not valid`); });
+      return r.json();
+    })
+    .then(coupon => {
+      appliedCoupon = { code: coupon.code, discountPercent: coupon.discountPercent };
+      toast(`🎟️ ${coupon.code} applied — ${coupon.discountPercent}% off`);
+      renderCouponState();
+      renderCartSummary();
+    })
+    .catch(err => toast(err.message || 'Coupon could not be applied', 'error'))
+    .finally(() => { if (btn) { btn.disabled = false; btn.textContent = 'Apply'; } });
+}
+
+function removeCoupon() {
+  appliedCoupon = null;
+  renderCouponState();
+  renderCartSummary();
+  toast('Coupon removed');
 }
 
 function changeCartQty(productId, cartItemId, currentQty, delta) {
@@ -815,8 +918,14 @@ function placeOrder() {
   btn.disabled = true; btn.textContent = 'Placing Order...';
   showSpinner('Placing your order...');
 
+  // Pass the coupon code along so the backend can re-validate and bump
+  // usedCount inside the same DB transaction as the order insert.
+  const body = appliedCoupon ? { couponCode: appliedCoupon.code } : {};
+
   fetch(`${API}/orders/${currentUser.id}/place`, {
-    method: 'POST', headers: authHeaders()
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body)
   })
     .then(r => {
       if (!r.ok) return r.text().then(t => { throw new Error(t || r.status); });
@@ -829,8 +938,11 @@ function placeOrder() {
         `<div class="empty-state">🛒 Your cart is empty<br>
           <small style="color:var(--text2);font-size:0.8rem">Add some products to get started!</small></div>`;
       document.getElementById('cartFooter').classList.add('hidden');
+      document.getElementById('couponRow').classList.add('hidden');
       document.getElementById('cartBadge').textContent = '0';
-      showOrderModal(order.id, order.totalAmount || 0);
+      // Successful order — drop the coupon so a fresh cart starts clean.
+      appliedCoupon = null;
+      showOrderModal(order.id, order.totalAmount || 0, order.discountAmount || 0);
       loadProducts();
     })
     .catch(err => {
@@ -863,7 +975,9 @@ function loadOrders() {
 }
 
 function renderOrders(orders) {
-  document.getElementById('ordersContent').innerHTML = orders.map(o => `
+  document.getElementById('ordersContent').innerHTML = orders.map(o => {
+    const hasDiscount = (o.discountAmount || 0) > 0 && o.couponCode;
+    return `
     <div class="order-card">
       <div class="order-header" onclick="toggleOrderItems(${o.id})" style="cursor:pointer">
         <div>
@@ -886,9 +1000,20 @@ function renderOrders(orders) {
             <span class="order-item-price">₹${(item.subtotal || 0).toLocaleString('en-IN')}</span>
           </div>
         `).join('') : '<div style="padding:1rem;color:var(--text2);font-size:0.85rem;text-align:center">No item details</div>'}
+        ${hasDiscount ? `
+          <div class="order-item-row" style="border-bottom:none;color:var(--text2);font-size:0.85rem;margin-top:0.5rem">
+            <span style="flex:1">Subtotal</span>
+            <span>₹${(o.subtotal || 0).toLocaleString('en-IN')}</span>
+          </div>
+          <div class="order-item-row" style="border-bottom:none;color:#3fb950;font-size:0.85rem">
+            <span style="flex:1">🎟️ ${o.couponCode}</span>
+            <span>− ₹${(o.discountAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+        ` : ''}
       </div>
     </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function toggleOrderItems(orderId) {
@@ -1208,6 +1333,7 @@ function showOrderDetailsModal(id) {
   if (!o) return toast('Order not found', 'error');
   ADMIN_STATE.editContext = { kind: 'orderDetails', id: null, payload: null };  // read-only
   document.getElementById('adminEditTitle').textContent = `Order #${id} · ${adminEscape(o.status || '')}`;
+  const hasDiscount = (o.discountAmount || 0) > 0 && o.couponCode;
   document.getElementById('adminEditBody').innerHTML = `
     <p style="margin-bottom:0.5rem;color:var(--text2);font-size:0.85rem">
       ${adminFmtDate(o.createdAt)} · <strong>${adminEscape(o.user?.email || '—')}</strong>
@@ -1219,6 +1345,14 @@ function showOrderDetailsModal(id) {
           <span><strong>${adminFmtINR(it.subtotal)}</strong></span>
         </div>
       `).join('')}
+      ${hasDiscount ? `
+        <div class="row" style="color:var(--text2)">
+          <span>Subtotal</span><span>${adminFmtINR(o.subtotal)}</span>
+        </div>
+        <div class="row" style="color:#3fb950">
+          <span>🎟️ ${adminEscape(o.couponCode)}</span><span>− ${adminFmtINR(o.discountAmount)}</span>
+        </div>
+      ` : ''}
       <div class="row" style="margin-top:0.5rem;border-top:1px solid var(--border);padding-top:0.7rem">
         <strong>Total</strong><strong style="color:var(--accent)">${adminFmtINR(o.totalAmount)}</strong>
       </div>
