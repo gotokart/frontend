@@ -130,11 +130,29 @@ function productImageUrl(p) {
 }
 
 function productVisual(p) {
-  if (p.imageUrl) {
+  const url = productImageUrl(p);
+  if (url) {
     const safeName = (p.name || '').replace(/"/g, '&quot;');
-    return `<img src="${p.imageUrl}" alt="${safeName}" style="width:80px;height:80px;border-radius:8px;object-fit:cover">`;
+    return `<img src="${url}" alt="${safeName}" style="width:80px;height:80px;border-radius:8px;object-fit:cover">`;
   }
   return `<span class="product-emoji">${productEmoji(p.name)}</span>`;
+}
+
+function productThumbHtml(p, cssClass, sizePx) {
+  const product = typeof p === 'string' ? findProductByName(p) : p;
+  const url = productImageUrl(product);
+  if (url) {
+    const name = typeof p === 'string' ? p : p?.name;
+    const safeName = (name || '').replace(/"/g, '&quot;');
+    return `<img src="${url}" alt="${safeName}" class="${cssClass}" style="width:${sizePx}px;height:${sizePx}px;border-radius:8px;object-fit:cover">`;
+  }
+  const name = typeof p === 'string' ? p : p?.name;
+  return `<span class="${cssClass}">${productEmoji(name)}</span>`;
+}
+
+function findProductByName(name) {
+  const n = (name || '').toLowerCase();
+  return allProducts.find(p => (p.name || '').toLowerCase() === n);
 }
 
 /* ─── EMOJI MAP ───────────────────────────────────────── */
@@ -754,7 +772,7 @@ function renderCart(items) {
   content.innerHTML = items.map(item => `
     <div class="cart-item" id="cart-item-${item.id}">
       <div class="cart-item-left">
-        <div class="cart-item-emoji">${productEmoji(item.product?.name)}</div>
+        <div class="cart-item-emoji">${productThumbHtml(item.product, 'cart-item-emoji', 48)}</div>
         <div class="cart-item-info">
           <div class="cart-item-name">${item.product?.name || 'Product'}</div>
           <div class="cart-item-price">₹${(item.product?.price || 0).toLocaleString('en-IN')} each</div>
@@ -1080,7 +1098,7 @@ function renderOrders(orders) {
       <div class="order-items hidden" id="order-items-${o.id}">
         ${o.items && o.items.length ? o.items.map(item => `
           <div class="order-item-row">
-            <span class="order-item-emoji">${productEmoji(item.productName)}</span>
+            <span class="order-item-emoji">${productThumbHtml(item.productName, 'order-item-emoji', 32)}</span>
             <span class="order-item-name">${item.productName}</span>
             <span class="order-item-qty">× ${item.quantity}</span>
             <span class="order-item-price">₹${(item.subtotal || 0).toLocaleString('en-IN')}</span>
@@ -1349,6 +1367,29 @@ function confirmDeleteProduct(id) {
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
         .then(() => { toast('Product deleted ✅'); closeAdminConfirmModal(); loadAdminProducts(); })
         .catch(err => toast('Delete failed: ' + err.message, 'error'));
+    }
+  );
+}
+
+function backfillProductImages() {
+  openAdminConfirmModal(
+    'Fetch product images?',
+    'Downloads Unsplash photos for every product missing an image. This can take a few minutes — keep this tab open.',
+    () => {
+      closeAdminConfirmModal();
+      showSpinner('Fetching Unsplash images for all products…');
+      fetch(`${API}/products/backfill-images`, { method: 'POST', headers: authHeaders() })
+        .then(r => r.json().then(body => ({ ok: r.ok, body })))
+        .then(({ ok, body }) => {
+          hideSpinner();
+          if (!ok) throw new Error(body.message || 'Backfill failed');
+          const msg = `Images updated: ${body.updated}/${body.total}` +
+            (body.failed ? ` (${body.failed} failed)` : '');
+          toast(msg, body.failed ? 'error' : 'success');
+          loadAdminProducts();
+          loadProducts();
+        })
+        .catch(err => { hideSpinner(); toast('Image backfill failed: ' + err.message, 'error'); });
     }
   );
 }
