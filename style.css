@@ -196,23 +196,43 @@ select.input option { background: var(--bg3); }
 .cart-summary-line.total .amount { color: var(--accent); }
 
 /* Coupon row — sits between cart items and the cart footer */
-.coupon-row { margin-top: 1rem; }
+.coupon-row { margin-top: 1rem; position: relative; }
+.coupon-row.open { z-index: 50; }
 .coupon-input-wrap {
   display: flex; align-items: center; gap: 0.5rem;
   background: var(--card-bg); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 0.7rem 1rem;
   transition: border-color 0.2s;
+  overflow: visible;
 }
 .coupon-input-wrap:focus-within { border-color: rgba(245,166,35,0.4); }
 .coupon-icon { font-size: 1.2rem; flex-shrink: 0; }
-.coupon-input {
-  flex: 1; background: transparent; border: none; outline: none;
-  color: var(--text); font-family: var(--font-body); font-size: 0.9rem;
-  letter-spacing: 0.5px; text-transform: uppercase; padding: 0.3rem 0;
-  min-width: 120px;
+.coupon-picker { position: relative; flex: 1; min-width: 0; overflow: visible; }
+.coupon-picker-trigger {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  background: transparent; border: none; outline: none; cursor: pointer;
+  color: var(--text); font-family: var(--font-body); font-size: 0.9rem; font-weight: 500;
+  padding: 0.3rem 0; text-align: left;
 }
-.coupon-input::placeholder { color: var(--text2); text-transform: none; letter-spacing: normal; }
-.coupon-apply-btn { padding: 0.5rem 1.2rem; flex-shrink: 0; }
+.coupon-picker-trigger.open .coupon-picker-chevron { transform: rotate(180deg); }
+.coupon-picker-chevron { color: var(--text2); font-size: 0.75rem; transition: transform 0.2s; }
+.coupon-picker-menu {
+  position: absolute; left: 0; right: 0; top: calc(100% + 0.45rem); z-index: 60;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.35); max-height: 220px; overflow-y: auto;
+}
+.coupon-picker-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.8rem;
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  color: var(--text); font-family: var(--font-body); font-size: 0.85rem;
+  padding: 0.75rem 1rem; cursor: pointer; text-align: left; transition: background 0.15s;
+  position: relative; z-index: 1;
+}
+.coupon-picker-item:last-child { border-bottom: none; }
+.coupon-picker-item:hover { background: rgba(245,166,35,0.08); }
+.coupon-picker-code { font-weight: 700; letter-spacing: 0.5px; color: var(--accent); }
+.coupon-picker-off { color: var(--text2); font-size: 0.8rem; white-space: nowrap; }
+.coupon-picker-empty { padding: 0.9rem 1rem; color: var(--text2); font-size: 0.85rem; text-align: center; }
 
 .coupon-applied {
   display: flex; align-items: center; gap: 0.8rem;

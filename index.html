@@ -106,9 +106,11 @@
       </div>
       <div id="loginForm">
         <h2 class="section-title">Welcome Back</h2>
-        <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="john@example.com" class="input"/></div>
-        <div class="form-group"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" class="input"/></div>
-        <button class="btn-primary full" onclick="loginUser()">Login →</button>
+        <form id="loginFormEl" onsubmit="loginUser(); return false;">
+          <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="john@example.com" class="input" autocomplete="email"/></div>
+          <div class="form-group"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" class="input" autocomplete="current-password"/></div>
+          <button type="submit" class="btn-primary full">Login →</button>
+        </form>
       </div>
       <div id="registerForm" class="hidden">
         <h2 class="section-title">Create Account</h2>
@@ -212,9 +214,12 @@
     <div class="coupon-row hidden" id="couponRow">
       <div class="coupon-input-wrap" id="couponInputWrap">
         <span class="coupon-icon">🎟️</span>
-        <input type="text" id="couponCodeInput" placeholder="Have a coupon? Enter code"
-               class="coupon-input" autocomplete="off" oninput="this.value=this.value.toUpperCase()">
-        <button class="btn-secondary coupon-apply-btn" onclick="applyCoupon()">Apply</button>
+        <div class="coupon-picker" id="couponPicker">
+          <button type="button" class="coupon-picker-trigger" id="couponPickerTrigger" onclick="toggleCouponPicker(event)">
+            Apply Coupon <span class="coupon-picker-chevron">▾</span>
+          </button>
+          <div class="coupon-picker-menu hidden" id="couponPickerMenu"></div>
+        </div>
       </div>
       <div class="coupon-applied hidden" id="couponAppliedBox">
         <span class="coupon-applied-icon">✅</span>
@@ -302,7 +307,7 @@
           <option value="low">Low stock (≤5)</option>
           <option value="out">Out of stock</option>
         </select>
-        <button class="btn-secondary" onclick="openProductCreateModal()">➕ Add Product</button>
+        <button class="btn-secondary" onclick="openAddProductPanel()">➕ Add Product</button>
         <button class="btn-secondary" onclick="exportCsv('products')">⬇ CSV</button>
       </div>
       <div class="admin-table-wrap">
