@@ -129,11 +129,9 @@ function productImageUrl(p) {
 }
 
 function productVisual(p) {
-  const url = productImageUrl(p);
-  if (url) {
+  if (p.imageUrl) {
     const safeName = (p.name || '').replace(/"/g, '&quot;');
-    return `<img class="product-image" src="${url}" alt="${safeName}" loading="lazy"
-              onerror="this.outerHTML='<span class=&quot;product-emoji&quot;>${productEmoji(p.name)}</span>'">`;
+    return `<img src="${p.imageUrl}" alt="${safeName}" style="width:80px;height:80px;border-radius:8px;object-fit:cover">`;
   }
   return `<span class="product-emoji">${productEmoji(p.name)}</span>`;
 }
