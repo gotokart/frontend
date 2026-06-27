@@ -100,25 +100,45 @@
   <!-- AUTH -->
   <section class="section hidden" id="authSection">
     <div class="auth-container">
-      <div class="auth-tabs">
-        <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
-        <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+
+      <!-- ───────── Customer OTP login (main site) ───────── -->
+      <div id="otpAuthWrap">
+        <!-- Step 1: enter email -->
+        <div id="otpStepEmail">
+          <h2 class="section-title">Login / Sign up</h2>
+          <p class="auth-sub">We'll email you a one-time code — no password needed.</p>
+          <form id="otpEmailFormEl" onsubmit="requestOtp(); return false;">
+            <div class="form-group"><label>Email</label><input type="email" id="otpEmail" placeholder="you@example.com" class="input" autocomplete="email"/></div>
+            <button type="submit" class="btn-primary full">Send Code →</button>
+          </form>
+        </div>
+        <!-- Step 2: enter code -->
+        <div id="otpStepCode" class="hidden">
+          <h2 class="section-title">Enter your code</h2>
+          <p class="auth-sub">We sent a 6-digit code to <strong id="otpSentTo"></strong>.</p>
+          <form id="otpCodeFormEl" onsubmit="verifyOtp(); return false;">
+            <div class="form-group"><label>Your name (new accounts only)</label><input type="text" id="otpName" placeholder="John Doe" class="input" autocomplete="name"/></div>
+            <div class="form-group"><label>6-digit code</label><input type="text" id="otpCode" placeholder="123456" maxlength="6" inputmode="numeric" class="input" autocomplete="one-time-code"/></div>
+            <button type="submit" class="btn-primary full">Verify & Login →</button>
+          </form>
+          <div class="auth-actions">
+            <button class="auth-link-btn" onclick="resetOtpFlow()">← Change email</button>
+            <button class="auth-link-btn" id="otpResendBtn" onclick="requestOtp(true)">Resend code</button>
+          </div>
+        </div>
       </div>
-      <div id="loginForm">
-        <h2 class="section-title">Welcome Back</h2>
-        <form id="loginFormEl" onsubmit="loginUser(); return false;">
-          <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="john@example.com" class="input" autocomplete="email"/></div>
-          <div class="form-group"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" class="input" autocomplete="current-password"/></div>
+
+      <!-- ───────── Admin password login (admin.gotokart.xyz only) ───────── -->
+      <div id="adminAuthWrap" class="hidden">
+        <h2 class="section-title">Admin Login</h2>
+        <p class="auth-sub">Authorised staff only.</p>
+        <form id="adminLoginFormEl" onsubmit="adminLogin(); return false;">
+          <div class="form-group"><label>Email</label><input type="email" id="adminEmail" placeholder="admin@gotokart.xyz" class="input" autocomplete="email"/></div>
+          <div class="form-group"><label>Password</label><input type="password" id="adminPassword" placeholder="••••••••" class="input" autocomplete="current-password"/></div>
           <button type="submit" class="btn-primary full">Login →</button>
         </form>
       </div>
-      <div id="registerForm" class="hidden">
-        <h2 class="section-title">Create Account</h2>
-        <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="John Doe" class="input"/></div>
-        <div class="form-group"><label>Email</label><input type="email" id="regEmail" placeholder="john@example.com" class="input"/></div>
-        <div class="form-group"><label>Password</label><input type="password" id="regPassword" placeholder="••••••••" class="input"/></div>
-        <button class="btn-primary full" onclick="registerUser()">Create Account →</button>
-      </div>
+
     </div>
   </section>
 
@@ -256,6 +276,7 @@
         <p class="admin-subtitle">Manage products, orders, users, and more.</p>
       </div>
       <div class="admin-quick-actions">
+        <button class="btn-secondary" onclick="sendTestEmail()">✉️ Test Email</button>
         <button class="btn-secondary" onclick="refreshAdminTab()">↻ Refresh</button>
       </div>
     </div>
