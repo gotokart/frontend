@@ -17,6 +17,10 @@ const API = (location.protocol === 'file:' || location.port === '5500' || locati
   ? 'http://localhost:8080/api'
   : '/api';
 
+// True when served from admin.gotokart.xyz (or any "admin." host). Drives the
+// admin-only login + dashboard. The storefront never exposes the admin panel.
+const IS_ADMIN_SITE = location.hostname.startsWith('admin.');
+
 let currentUser  = null;   // { id, name, email, role }
 let jwtToken     = localStorage.getItem('gk_token') || null;
 let allProducts  = [];
@@ -331,36 +335,100 @@ function showSection(name) {
   if (name === 'auth')     { document.getElementById('authLink').classList.add('active'); }
 }
 
-/* ─── AUTH TAB ────────────────────────────────────────── */
-function switchAuthTab(tab) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('loginForm').classList.add('hidden');
-  document.getElementById('registerForm').classList.add('hidden');
-  if (tab === 'login') {
-    document.querySelectorAll('.auth-tab')[0].classList.add('active');
-    document.getElementById('loginForm').classList.remove('hidden');
-  } else {
-    document.querySelectorAll('.auth-tab')[1].classList.add('active');
-    document.getElementById('registerForm').classList.remove('hidden');
-  }
+/* ─── OTP LOGIN (customers, main site) ────────────────── */
+let otpEmailInFlight = '';   // email the current code was sent to
+let otpResendTimer   = null;
+
+// Step 1 — request a one-time code by email.
+function requestOtp(isResend = false) {
+  const email = (isResend ? otpEmailInFlight
+                          : document.getElementById('otpEmail').value.trim()).toLowerCase();
+  if (!email || !email.includes('@')) return toast('Please enter a valid email', 'error');
+
+  showSpinner(isResend ? 'Resending code...' : 'Sending code...');
+  fetch(`${API}/auth/otp/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t || 'Could not send code'); }); return r.json(); })
+    .then(() => {
+      hideSpinner();
+      otpEmailInFlight = email;
+      document.getElementById('otpSentTo').textContent = email;
+      document.getElementById('otpStepEmail').classList.add('hidden');
+      document.getElementById('otpStepCode').classList.remove('hidden');
+      document.getElementById('otpCode').focus();
+      startResendCooldown();
+      toast('Code sent! Check your email 📧');
+    })
+    .catch(err => { hideSpinner(); toast(err.message || 'Could not send code.', 'error'); });
 }
 
-/* ─── LOGIN — uses POST /auth/login + JWT ─────────────── */
-function loginUser() {
-  const email    = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value.trim();
+// Step 2 — verify the code and receive a JWT.
+function verifyOtp() {
+  const otp  = document.getElementById('otpCode').value.trim();
+  const name = document.getElementById('otpName').value.trim();
+  if (!otp) return toast('Please enter the code', 'error');
+
+  showSpinner('Verifying...');
+  fetch(`${API}/auth/otp/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: otpEmailInFlight, otp, name })
+  })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t || 'Invalid code'); }); return r.json(); })
+    .then(data => {
+      hideSpinner();
+      jwtToken = data.token;
+      localStorage.setItem('gk_token', jwtToken);
+      currentUser = { id: data.id, name: data.name, email: data.email, role: data.role };
+      resetOtpFlow();
+      onLoginSuccess();
+    })
+    .catch(err => { hideSpinner(); toast(err.message || 'Verification failed.', 'error'); });
+}
+
+function resetOtpFlow() {
+  otpEmailInFlight = '';
+  if (otpResendTimer) { clearInterval(otpResendTimer); otpResendTimer = null; }
+  const code = document.getElementById('otpCode'); if (code) code.value = '';
+  const name = document.getElementById('otpName'); if (name) name.value = '';
+  document.getElementById('otpStepCode')?.classList.add('hidden');
+  document.getElementById('otpStepEmail')?.classList.remove('hidden');
+}
+
+function startResendCooldown() {
+  const btn = document.getElementById('otpResendBtn');
+  if (!btn) return;
+  let left = 60;
+  btn.disabled = true;
+  btn.textContent = `Resend in ${left}s`;
+  if (otpResendTimer) clearInterval(otpResendTimer);
+  otpResendTimer = setInterval(() => {
+    left -= 1;
+    if (left <= 0) {
+      clearInterval(otpResendTimer); otpResendTimer = null;
+      btn.disabled = false; btn.textContent = 'Resend code';
+    } else {
+      btn.textContent = `Resend in ${left}s`;
+    }
+  }, 1000);
+}
+
+/* ─── ADMIN LOGIN (admin.gotokart.xyz only) ───────────── */
+function adminLogin() {
+  const email    = document.getElementById('adminEmail').value.trim().toLowerCase();
+  const password = document.getElementById('adminPassword').value.trim();
   if (!email || !password) return toast('Please enter email and password', 'error');
 
   showSpinner('Logging you in...');
-  fetch(`${API}/auth/login`, {
+  fetch(`${API}/auth/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   })
-    .then(r => {
-      if (!r.ok) return r.text().then(t => { throw new Error(t || 'Invalid credentials'); });
-      return r.json();
-    })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t || 'Invalid credentials'); }); return r.json(); })
     .then(data => {
       hideSpinner();
       jwtToken = data.token;
@@ -372,40 +440,36 @@ function loginUser() {
 }
 
 function onLoginSuccess() {
+  const isAdmin = (currentUser.role || '').toUpperCase() === 'ADMIN';
+
+  // On the admin subdomain only admins may proceed — and they go straight to
+  // the dashboard. On the main storefront the admin UI is NEVER shown, even to
+  // an admin account, so admin creds used here just behave like a normal login.
+  if (IS_ADMIN_SITE) {
+    if (!isAdmin) {
+      toast('This site is for admins only.', 'error');
+      logoutUser();
+      return;
+    }
+    document.getElementById('authLink').textContent = currentUser.name || 'Admin';
+    document.getElementById('authLink').onclick = (e) => e.preventDefault();
+    document.getElementById('logoutBtn').classList.remove('hidden');
+    document.getElementById('navAdmin')?.classList.remove('hidden');
+    toast(`Welcome, ${currentUser.name || 'Admin'}! 👋`);
+    showSection('admin');
+    return;
+  }
+
+  // ── Main storefront ──
   document.getElementById('authLink').textContent = currentUser.name || `User #${currentUser.id}`;
   document.getElementById('authLink').onclick = (e) => e.preventDefault();
   document.getElementById('logoutBtn').classList.remove('hidden');
   updateCartBadge();
-  const isAdmin = (currentUser.role || '').toUpperCase() === 'ADMIN';
-  document.getElementById('adminToggleBtn').classList.toggle('hidden', !isAdmin);
-  document.getElementById('navAdmin').classList.toggle('hidden', !isAdmin);
-  toast(`Welcome back, ${currentUser.name || 'User'}! 👋`);
+  // Admin entry points stay hidden on the storefront regardless of role.
+  document.getElementById('adminToggleBtn')?.classList.add('hidden');
+  document.getElementById('navAdmin')?.classList.add('hidden');
+  toast(`Welcome, ${currentUser.name || 'User'}! 👋`);
   showSection('products');
-}
-
-/* ─── REGISTER — POST /auth/register ─────────────────── */
-function registerUser() {
-  const name     = document.getElementById('regName').value.trim();
-  const email    = document.getElementById('regEmail').value.trim();
-  const password = document.getElementById('regPassword').value.trim();
-  if (!name || !email || !password) return toast('Please fill all fields', 'error');
-
-  showSpinner('Creating your account...');
-  fetch(`${API}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password })
-  })
-    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t || 'Registration failed'); }); return r.json(); })
-    .then(() => {
-      hideSpinner();
-      toast(`Account created! Welcome, ${name}! 🎉`);
-      ['regName','regEmail','regPassword'].forEach(id => document.getElementById(id).value = '');
-      document.getElementById('loginEmail').value = email;
-      document.getElementById('loginPassword').value = password;
-      switchAuthTab('login');
-    })
-    .catch(err => { hideSpinner(); toast(err.message || 'Registration failed.', 'error'); });
 }
 
 /* ─── LOGOUT ──────────────────────────────────────────── */
@@ -417,14 +481,13 @@ function logoutUser() {
   document.getElementById('authLink').textContent = 'Login';
   document.getElementById('authLink').onclick = () => showSection('auth');
   document.getElementById('logoutBtn').classList.add('hidden');
-  document.getElementById('cartBadge').textContent = '0';
-  document.getElementById('adminToggleBtn').classList.add('hidden');
-  document.getElementById('adminPanel').classList.add('hidden');
-  document.getElementById('navAdmin').classList.add('hidden');
-  document.getElementById('loginEmail').value = '';
-  document.getElementById('loginPassword').value = '';
+  const badge = document.getElementById('cartBadge'); if (badge) badge.textContent = '0';
+  document.getElementById('adminToggleBtn')?.classList.add('hidden');
+  document.getElementById('adminPanel')?.classList.add('hidden');
+  document.getElementById('navAdmin')?.classList.add('hidden');
+  resetOtpFlow();
   toast('Logged out successfully 👋');
-  showSection('hero');
+  showSection(IS_ADMIN_SITE ? 'auth' : 'hero');
 }
 
 /* ─── CATEGORIES — dynamic from backend ──────────────── */
@@ -1157,6 +1220,15 @@ function enterAdminDashboard() {
     return;
   }
   switchAdminTab(ADMIN_STATE.currentTab || 'overview');
+}
+
+/* Sends a test email to the configured admin inbox to verify SMTP delivery. */
+function sendTestEmail() {
+  showSpinner('Sending test email...');
+  fetch(`${API}/admin/test-email`, { method: 'POST', headers: authHeaders() })
+    .then(r => { if (!r.ok) return r.text().then(t => { throw new Error(t || 'Failed'); }); return r.json(); })
+    .then(d => { hideSpinner(); toast(d.message || 'Test email sent! 📧'); })
+    .catch(err => { hideSpinner(); toast(err.message || 'Could not send test email.', 'error'); });
 }
 
 function switchAdminTab(tab) {
@@ -2007,8 +2079,25 @@ function csvRowsFor(kind) {
 }
 
 /* ─── INIT ────────────────────────────────────────────── */
+function setupSiteChrome() {
+  // Toggle the right login form for this domain.
+  document.getElementById('otpAuthWrap')?.classList.toggle('hidden', IS_ADMIN_SITE);
+  document.getElementById('adminAuthWrap')?.classList.toggle('hidden', !IS_ADMIN_SITE);
+
+  if (IS_ADMIN_SITE) {
+    // Strip the storefront nav — the admin domain is dashboard-only.
+    ['navShop', 'navCart', 'navOrders'].forEach(id =>
+      document.getElementById(id)?.classList.add('hidden'));
+    const logo = document.querySelector('.nav-logo');
+    if (logo) { logo.innerHTML = 'GoTo<span>Kart</span> · Admin'; logo.onclick = null; logo.style.cursor = 'default'; }
+    document.title = 'GoToKart — Admin';
+    document.getElementById('heroSection')?.classList.add('hidden');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('heroSection').classList.remove('hidden');
+  setupSiteChrome();
+  if (!IS_ADMIN_SITE) document.getElementById('heroSection').classList.remove('hidden');
   document.getElementById('authLink').onclick = () => showSection('auth');
   document.addEventListener('click', (e) => {
     const picker = document.getElementById('couponPicker');
@@ -2047,4 +2136,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('gk_token');
     }
   }
+
+  // Admin domain with no valid session → show the login form straight away.
+  if (IS_ADMIN_SITE && !jwtToken) showSection('auth');
 });
