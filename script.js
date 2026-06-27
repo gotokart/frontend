@@ -1271,7 +1271,8 @@ const adminFmtDate = (d) => {
 };
 const adminStatusBadge = (status) => {
   const s = String(status || '').toLowerCase();
-  return `<span class="status-badge ${s}">${adminEscape(status || 'UNKNOWN')}</span>`;
+  const label = String(status || 'UNKNOWN').replace(/_/g, ' ');
+  return `<span class="status-badge ${s}">${adminEscape(label)}</span>`;
 };
 
 /* ─── Overview ─────────────────────────────────────────── */
@@ -1499,8 +1500,8 @@ function renderAdminOrders() {
       <td class="num">${adminFmtINR(o.totalAmount)}</td>
       <td>
         <select class="cell-select" onchange="updateOrderStatus(${o.id}, this.value)">
-          ${['PLACED','SHIPPED','DELIVERED','CANCELLED'].map(s =>
-            `<option value="${s}" ${o.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+          ${['PLACED','SHIPPED','OUT_FOR_DELIVERY','DELIVERED','CANCELLED'].map(s =>
+            `<option value="${s}" ${o.status === s ? 'selected' : ''}>${s.replace(/_/g, ' ')}</option>`).join('')}
         </select>
       </td>
       <td>
